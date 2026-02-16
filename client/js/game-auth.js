@@ -12,6 +12,10 @@ function setAuthSession(user) {
         }
     };
 
+    if (window.socketManager && typeof window.socketManager.registerSessionUser === 'function') {
+        window.socketManager.registerSessionUser(user);
+    }
+
     window.dispatchEvent(new CustomEvent('auth-ready', { detail: { user } }));
 }
 

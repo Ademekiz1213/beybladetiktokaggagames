@@ -37,8 +37,15 @@ function parseDateMs(value) {
 }
 
 function parseAdminEmails() {
-    return String(process.env.PREMIUM_ADMIN_EMAILS || '')
-        .split(',')
+    const raw = [
+        String(process.env.PREMIUM_ADMIN_EMAILS || ''),
+        String(process.env.PREMIUM_ADMIN_EMAIL || '')
+    ]
+        .join(',')
+        .trim();
+
+    return raw
+        .split(/[,\s;]+/)
         .map((item) => normalizeEmail(item))
         .filter(Boolean);
 }
@@ -342,6 +349,7 @@ async function registerPremiumRoutes(app) {
                 email: user.email,
                 trustedAuth: user.trusted,
                 isAdmin: isAdminEmail(user.email),
+                adminConfigCount: parseAdminEmails().length,
                 ...snapshot
             });
         } catch (error) {
@@ -644,5 +652,7 @@ async function registerPremiumRoutes(app) {
 }
 
 module.exports = {
-    registerPremiumRoutes
+    registerPremiumRoutes,
+    resolveRequestUser,
+    isAdminEmail
 };

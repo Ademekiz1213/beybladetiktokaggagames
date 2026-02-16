@@ -339,6 +339,10 @@ h1 {
     margin-bottom: 10px;
 }
 
+.admin-panel-wide {
+    grid-column: 1 / -1;
+}
+
 .admin-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -414,6 +418,24 @@ h1 {
     gap: 8px;
     font-size: 11px;
     color: var(--muted);
+}
+
+.live-streamer-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.live-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid rgba(35, 208, 255, 0.35);
+    background: rgba(35, 208, 255, 0.12);
+    color: #8fe7ff;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
 }
 
 .btn-small {

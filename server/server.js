@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const TikTokHandler = require('./tiktokHandler');
-const { registerPremiumRoutes } = require('./premiumService');
+const { registerPremiumRoutes, resolveRequestUser, isAdminEmail } = require('./premiumService');
 
 const app = express();
 const server = http.createServer(app);
@@ -13,6 +13,7 @@ const io = new Server(server, {
 
 const MAX_STREAMERS_PER_TAB = 20;
 const MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER = 10;
+const liveSocketStates = new Map(); // socketId -> live connection snapshot
 
 // Serve client files
 app.use(express.json({ limit: '128kb' }));
@@ -24,6 +25,54 @@ app.get('/health', (_req, res) => {
         ok: true,
         service: 'beyblade-tiktok-server'
     });
+});
+
+app.get('/api/admin/live-streamers', async (req, res) => {
+    try {
+        const user = await resolveRequestUser(req);
+        if (!user) {
+            return res.status(401).json({ ok: false, error: 'Unauthorized' });
+        }
+
+        if (!isAdminEmail(user.email)) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+
+        const sockets = Array.from(liveSocketStates.values())
+            .map((entry) => ({
+                socketId: entry.socketId,
+                userEmail: entry.userEmail || null,
+                userUid: entry.userUid || null,
+                connectedUsernames: Array.isArray(entry.connectedUsernames) ? entry.connectedUsernames : [],
+                trackedUsernames: Array.isArray(entry.trackedUsernames) ? entry.trackedUsernames : [],
+                connectedCount: Number(entry.connectedCount || 0),
+                trackedCount: Number(entry.trackedCount || 0),
+                updatedAt: entry.updatedAt || null
+            }))
+            .sort((a, b) => {
+                if (a.connectedCount === b.connectedCount) {
+                    return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+                }
+                return b.connectedCount - a.connectedCount;
+            });
+
+        const uniqueConnected = new Set();
+        for (const entry of sockets) {
+            for (const username of entry.connectedUsernames) {
+                uniqueConnected.add(String(username));
+            }
+        }
+
+        return res.json({
+            ok: true,
+            totalSockets: sockets.length,
+            totalConnectedStreamers: uniqueConnected.size,
+            sockets
+        });
+    } catch (error) {
+        console.error('[Admin] /live-streamers failed:', error);
+        return res.status(500).json({ ok: false, error: 'Internal error' });
+    }
 });
 
 function normalizeUsername(username) {
@@ -80,17 +129,49 @@ function getTrackedUsernames(handlers) {
     return Array.from(handlers.values()).map((handler) => handler.username);
 }
 
+function updateLiveSocketState(socket, handlers, payload = {}) {
+    const socketId = socket?.id;
+    if (!socketId) return;
+
+    const previous = liveSocketStates.get(socketId) || {
+        socketId,
+        userEmail: null,
+        userUid: null,
+        connectedUsernames: [],
+        trackedUsernames: [],
+        connectedCount: 0,
+        trackedCount: 0,
+        updatedAt: null
+    };
+
+    const connectedUsernames = getConnectedUsernames(handlers);
+    const trackedUsernames = getTrackedUsernames(handlers);
+
+    liveSocketStates.set(socketId, {
+        ...previous,
+        connectedUsernames,
+        trackedUsernames,
+        connectedCount: connectedUsernames.length,
+        trackedCount: trackedUsernames.length,
+        lastStatus: payload,
+        updatedAt: new Date().toISOString()
+    });
+}
+
 function emitSocketStatus(socket, handlers, payload = {}) {
     const connectedUsernames = getConnectedUsernames(handlers);
 
-    socket.emit('tiktok-status', {
+    const statusPayload = {
         globalConnected: connectedUsernames.length > 0,
         connectedCount: connectedUsernames.length,
         connectedUsernames,
         trackedCount: handlers.size,
         trackedUsernames: getTrackedUsernames(handlers),
         ...payload
-    });
+    };
+
+    updateLiveSocketState(socket, handlers, statusPayload);
+    socket.emit('tiktok-status', statusPayload);
 }
 
 io.on('connection', (socket) => {
@@ -99,6 +180,17 @@ io.on('connection', (socket) => {
     // Each tab/socket gets isolated streamer handlers.
     const sessionHandlers = new Map(); // streamerKey -> TikTokHandler
     const failedConnectAttempts = new Map(); // streamerKey -> { count, blocked, lastError }
+
+    liveSocketStates.set(socket.id, {
+        socketId: socket.id,
+        userEmail: null,
+        userUid: null,
+        connectedUsernames: [],
+        trackedUsernames: [],
+        connectedCount: 0,
+        trackedCount: 0,
+        updatedAt: new Date().toISOString()
+    });
 
     function connectStreamerForSocket(username) {
         const normalized = normalizeUsername(username);
@@ -180,6 +272,21 @@ io.on('connection', (socket) => {
     emitSocketStatus(socket, sessionHandlers, {
         connected: false,
         snapshot: true
+    });
+
+    socket.on('register-session-user', (payload) => {
+        const userEmail = String(payload?.email || '').trim().toLowerCase();
+        const userUid = String(payload?.uid || '').trim();
+
+        const current = liveSocketStates.get(socket.id);
+        if (!current) return;
+
+        liveSocketStates.set(socket.id, {
+            ...current,
+            userEmail: userEmail || current.userEmail || null,
+            userUid: userUid || current.userUid || null,
+            updatedAt: new Date().toISOString()
+        });
     });
 
     // Connect one or more TikTok lives for only this tab.
@@ -271,6 +378,7 @@ io.on('connection', (socket) => {
         }
         sessionHandlers.clear();
         failedConnectAttempts.clear();
+        liveSocketStates.delete(socket.id);
 
         console.log(`[Socket] Client disconnected: ${socket.id}`);
     });

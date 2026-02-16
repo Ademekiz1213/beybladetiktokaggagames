@@ -27,6 +27,15 @@ function formatDate(value) {
     return date.toLocaleString();
 }
 
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function setMessage(message, type = 'info') {
     const messageEl = document.getElementById('adminMessage');
     if (!messageEl) return;
@@ -96,7 +105,7 @@ function renderCodes(codes) {
     list.innerHTML = codes.map((code) => {
         const statusClass = code.active && !code.expired ? 'is-on' : 'is-off';
         const statusLabel = code.active && !code.expired ? 'Aktif' : 'Pasif';
-        const usageLabel = code.maxUses > 0 ? `${code.usedCount}/${code.maxUses}` : `${code.usedCount}/∞`;
+        const usageLabel = code.maxUses > 0 ? `${code.usedCount}/${code.maxUses}` : `${code.usedCount}/limitsiz`;
 
         return `
             <div class="admin-item" data-code="${code.code}">
@@ -144,6 +153,69 @@ function renderAccounts(accounts) {
     }).join('');
 }
 
+function renderLiveConnections(payload) {
+    const summaryEl = document.getElementById('liveConnectionsSummary');
+    const list = document.getElementById('liveConnectionsList');
+    if (!summaryEl || !list) return;
+
+    const totalSockets = Number(payload?.totalSockets || 0);
+    const totalConnectedStreamers = Number(payload?.totalConnectedStreamers || 0);
+    summaryEl.textContent = `${totalSockets} sekme aktif, ${totalConnectedStreamers} farkli yayinci canli bagli.`;
+
+    const sockets = Array.isArray(payload?.sockets) ? payload.sockets : [];
+    if (sockets.length === 0) {
+        list.innerHTML = '<div class="admin-list-empty">Aktif bagli yayinci yok</div>';
+        return;
+    }
+
+    list.innerHTML = sockets.map((entry) => {
+        const connected = Array.isArray(entry.connectedUsernames) ? entry.connectedUsernames : [];
+        const tracked = Array.isArray(entry.trackedUsernames) ? entry.trackedUsernames : [];
+        const trackedOnly = tracked.filter((username) => !connected.includes(username));
+
+        const connectedChips = connected.length > 0
+            ? connected.map((username) => `<span class="live-chip">${escapeHtml(username)}</span>`).join('')
+            : '<span class="admin-list-empty">Canli bagli yok</span>';
+
+        const trackedChips = trackedOnly.length > 0
+            ? trackedOnly.map((username) => `<span class="live-chip">${escapeHtml(username)} (beklemede)</span>`).join('')
+            : '';
+
+        return `
+            <div class="admin-item">
+                <div class="admin-item-main">
+                    <strong>${escapeHtml(entry.userEmail || 'Bilinmeyen hesap')}</strong>
+                    <span>Socket: ${escapeHtml(entry.socketId || '-')}</span>
+                </div>
+                <div class="admin-item-meta">
+                    <span>Canli: ${Number(entry.connectedCount || connected.length)}</span>
+                    <span>Takipte: ${Number(entry.trackedCount || tracked.length)}</span>
+                    <span>Guncelleme: ${formatDate(entry.updatedAt)}</span>
+                </div>
+                <div class="live-streamer-chips">${connectedChips}</div>
+                ${trackedChips ? `<div class="live-streamer-chips">${trackedChips}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function setAdminReadonlyState(readonly) {
+    const selector = [
+        '#refreshCodesBtn',
+        '#refreshAccountsBtn',
+        '#refreshLiveConnectionsBtn',
+        '#saveCodeBtn',
+        '#grantBtn',
+        '#revokeBtn',
+        '#codeForm input',
+        '#grantForm input'
+    ].join(', ');
+
+    document.querySelectorAll(selector).forEach((element) => {
+        element.disabled = readonly;
+    });
+}
+
 function fillCodeForm(code) {
     document.getElementById('codeValue').value = code.code || '';
     document.getElementById('codeLabel').value = code.label || '';
@@ -183,11 +255,26 @@ async function initAdminPage() {
 
     const mePayload = await fetchApi('/api/premium/me', { user });
     if (!mePayload.isAdmin) {
-        window.location.replace('/dashboard.html');
+        setAdminReadonlyState(true);
+        renderCodes([]);
+        renderAccounts([]);
+        renderLiveConnections({
+            totalSockets: 0,
+            totalConnectedStreamers: 0,
+            sockets: []
+        });
+
+        const activeEmail = user.email || mePayload.email || '-';
+        const adminConfigCount = Number(mePayload.adminConfigCount || 0);
+        setMessage(
+            `Bu hesap admin degil. Giris yapan: ${activeEmail}. Tanimli admin sayisi: ${adminConfigCount}. PM2 env icindeki PREMIUM_ADMIN_EMAILS degerini kontrol edip "pm2 restart ecosystem.config.cjs --only beyblade --update-env" komutunu calistirin.`,
+            'error'
+        );
         return;
     }
 
     let cachedCodes = [];
+    let liveRefreshTimer = null;
 
     async function refreshCodes() {
         const payload = await fetchApi('/api/premium/codes', { user });
@@ -198,6 +285,11 @@ async function initAdminPage() {
     async function refreshAccounts() {
         const payload = await fetchApi('/api/premium/accounts', { user });
         renderAccounts(payload.accounts || []);
+    }
+
+    async function refreshLiveConnections() {
+        const payload = await fetchApi('/api/admin/live-streamers', { user });
+        renderLiveConnections(payload);
     }
 
     document.getElementById('refreshCodesBtn')?.addEventListener('click', async () => {
@@ -215,6 +307,15 @@ async function initAdminPage() {
             await refreshAccounts();
         } catch (error) {
             setMessage(error.message || 'Hesap listesi alinamadi.', 'error');
+        }
+    });
+
+    document.getElementById('refreshLiveConnectionsBtn')?.addEventListener('click', async () => {
+        setMessage('');
+        try {
+            await refreshLiveConnections();
+        } catch (error) {
+            setMessage(error.message || 'Canli baglanti listesi alinamadi.', 'error');
         }
     });
 
@@ -350,10 +451,22 @@ async function initAdminPage() {
     });
 
     try {
-        await Promise.all([refreshCodes(), refreshAccounts()]);
+        await Promise.all([refreshCodes(), refreshAccounts(), refreshLiveConnections()]);
+
+        liveRefreshTimer = window.setInterval(() => {
+            refreshLiveConnections().catch((error) => {
+                console.warn('[Admin] Live connections refresh failed:', error);
+            });
+        }, 15000);
     } catch (error) {
         setMessage(error.message || 'Veriler yuklenemedi.', 'error');
     }
+
+    window.addEventListener('beforeunload', () => {
+        if (liveRefreshTimer) {
+            window.clearInterval(liveRefreshTimer);
+        }
+    });
 }
 
 initAdminPage().catch((error) => {

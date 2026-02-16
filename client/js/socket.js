@@ -3,6 +3,12 @@ class SocketManager {
     constructor() {
         this.socket = null;
         this.eventHandlers = {};
+        this.sessionUserPayload = null;
+
+        window.addEventListener('auth-ready', (event) => {
+            const user = event?.detail?.user || null;
+            this.registerSessionUser(user);
+        });
     }
 
     connect() {
@@ -10,6 +16,7 @@ class SocketManager {
 
         this.socket.on('connect', () => {
             console.log('[Socket] Connected to server');
+            this._emitSessionUserIfPossible();
             this._trigger('socket-connected');
         });
 
@@ -80,6 +87,25 @@ class SocketManager {
             this.eventHandlers[event] = [];
         }
         this.eventHandlers[event].push(handler);
+    }
+
+    registerSessionUser(user) {
+        const email = String(user?.email || '').trim().toLowerCase();
+        const uid = String(user?.uid || '').trim();
+        if (!email) {
+            return;
+        }
+
+        this.sessionUserPayload = { email, uid };
+        this._emitSessionUserIfPossible();
+    }
+
+    _emitSessionUserIfPossible() {
+        if (!this.socket || !this.socket.connected || !this.sessionUserPayload) {
+            return;
+        }
+
+        this.socket.emit('register-session-user', this.sessionUserPayload);
     }
 
     _trigger(event, data) {

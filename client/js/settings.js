@@ -1,11 +1,17 @@
-// Settings Panel - Tabbed layout with skin selector
+﻿// Settings Panel - Tabbed layout with skin selector
 class SettingsPanel {
     constructor(giftConfig) {
         this.giftConfig = giftConfig;
         this.isOpen = false;
         this.activeTab = 'general';
+        this.authUser = null;
+        this.premiumState = null;
+        this.connectedUsernames = [];
+        this.isPremiumAdmin = false;
         this._createPanel();
+        this._injectAccountTab();
         this._bindEvents();
+        this._bindAuthSession();
     }
 
     _createPanel() {
@@ -155,6 +161,74 @@ class SettingsPanel {
         document.body.appendChild(this.overlay);
     }
 
+    _injectAccountTab() {
+        const tabsContainer = this.overlay.querySelector('.settings-tabs');
+        const bodyContainer = this.overlay.querySelector('.settings-body');
+        if (!tabsContainer || !bodyContainer) return;
+
+        const accountTabButton = document.createElement('button');
+        accountTabButton.className = 'tab-btn';
+        accountTabButton.dataset.tab = 'account';
+        accountTabButton.textContent = 'Hesap';
+        tabsContainer.appendChild(accountTabButton);
+
+        const accountContent = document.createElement('div');
+        accountContent.className = 'tab-content';
+        accountContent.dataset.tab = 'account';
+        accountContent.innerHTML = `
+            <div class="settings-section">
+                <h3>Hesap Durumu</h3>
+                <div class="account-status-box">
+                    <div class="account-status-row"><span>Email</span><strong id="accountEmail">-</strong></div>
+                    <div class="account-status-row"><span>Premium</span><strong id="premiumBadge" class="premium-badge off">Aktif degil</strong></div>
+                    <div class="account-status-row"><span>Premium bitis</span><strong id="premiumUntil">-</strong></div>
+                    <div class="account-status-row"><span>Bagli yayincilar</span><strong id="accountConnectedStreamers">-</strong></div>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h3>Aylik Aktivasyon</h3>
+                <div class="setting-row">
+                    <div class="setting-label">
+                        <label>Aktivasyon Kodu</label>
+                        <span class="setting-hint">Kod premium suresini aylik olarak uzatir</span>
+                    </div>
+                    <input type="text" id="activationCodeInput" placeholder="Kodu girin">
+                </div>
+                <div class="account-actions-row">
+                    <button id="redeemActivationBtn" class="btn-open-popup">Kodu Aktif Et</button>
+                    <button id="refreshPremiumBtn" class="btn-open-popup">Durumu Yenile</button>
+                </div>
+                <div id="activationMessage" class="activation-message"></div>
+            </div>
+            <div class="settings-section" id="premiumAccountsSection" style="display:none;">
+                <h3>Premium Hesaplar</h3>
+                <div id="premiumAccountsList" class="premium-accounts-list"></div>
+                <div class="account-actions-row">
+                    <button id="refreshPremiumAccountsBtn" class="btn-open-popup">Listeyi Yenile</button>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h3>Oturum</h3>
+                <div class="account-actions-row">
+                    <a href="/dashboard.html" class="btn-open-popup account-link-btn">Dashboard</a>
+                    <button id="logoutFromSettingsBtn" class="btn-reset-scores">Cikis Yap</button>
+                </div>
+            </div>
+        `;
+        bodyContainer.appendChild(accountContent);
+    }
+
+    _bindAuthSession() {
+        if (window.authSession && window.authSession.user) {
+            this.setAuthUser(window.authSession.user);
+        }
+
+        window.addEventListener('auth-ready', (event) => {
+            const user = event?.detail?.user || null;
+            this.setAuthUser(user);
+        });
+    }
+
     _bindEvents() {
         this.settingsBtn.addEventListener('click', () => this.toggle());
         this.overlay.querySelector('.settings-close').addEventListener('click', () => this.close());
@@ -164,8 +238,25 @@ class SettingsPanel {
             if (window.uiManager) window.uiManager.openScoreboardPopup();
         });
         this.overlay.querySelector('#resetScoresBtn').addEventListener('click', () => {
-            if (confirm('Tüm Arena Fatihleri skorları sıfırlanacak. Emin misiniz?')) {
+            if (confirm('Tum Arena Fatihleri skorlari sifirlanacak. Emin misiniz?')) {
                 if (window.game) window.game.resetScores();
+            }
+        });
+
+        const redeemBtn = this.overlay.querySelector('#redeemActivationBtn');
+        const refreshPremiumBtn = this.overlay.querySelector('#refreshPremiumBtn');
+        const refreshPremiumAccountsBtn = this.overlay.querySelector('#refreshPremiumAccountsBtn');
+        const logoutBtn = this.overlay.querySelector('#logoutFromSettingsBtn');
+        const activationInput = this.overlay.querySelector('#activationCodeInput');
+
+        redeemBtn?.addEventListener('click', () => this._redeemActivationCode());
+        refreshPremiumBtn?.addEventListener('click', () => this._refreshPremiumState());
+        refreshPremiumAccountsBtn?.addEventListener('click', () => this._refreshPremiumAccounts());
+        logoutBtn?.addEventListener('click', () => this._logoutFromSettings());
+        activationInput?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this._redeemActivationCode();
             }
         });
 
@@ -220,6 +311,8 @@ class SettingsPanel {
         this._renderGiftList();
         this._renderSkinGrid();
         this._renderArenaThemeGrid();
+        this._renderAccountSummary();
+        this._refreshPremiumState();
     }
 
     close() {
@@ -430,6 +523,249 @@ class SettingsPanel {
         this._createGiftRow(container, '', [{ type: 'spawn', amount: 1 }]);
     }
 
+    setConnectionInfo(usernames) {
+        this.connectedUsernames = Array.isArray(usernames) ? usernames : [];
+        this._renderAccountSummary();
+    }
+
+    setAuthUser(user) {
+        this.authUser = user || null;
+        this._renderAccountSummary();
+        this._refreshPremiumState();
+    }
+
+    async _logoutFromSettings() {
+        if (!window.authSession || typeof window.authSession.logout !== 'function') {
+            window.location.href = '/login.html';
+            return;
+        }
+
+        const logoutBtn = this.overlay.querySelector('#logoutFromSettingsBtn');
+        if (logoutBtn) {
+            logoutBtn.disabled = true;
+            logoutBtn.textContent = 'Cikis yapiliyor...';
+        }
+
+        try {
+            await window.authSession.logout();
+            window.location.replace('/login.html');
+        } catch (error) {
+            console.error('[Settings] Logout failed:', error);
+            if (logoutBtn) {
+                logoutBtn.disabled = false;
+                logoutBtn.textContent = 'Cikis Yap';
+            }
+            this._setActivationMessage('Cikis yapilamadi. Tekrar dene.', 'error');
+        }
+    }
+
+    _renderAccountSummary() {
+        const accountEmail = this.overlay.querySelector('#accountEmail');
+        const premiumBadge = this.overlay.querySelector('#premiumBadge');
+        const premiumUntil = this.overlay.querySelector('#premiumUntil');
+        const connectedEl = this.overlay.querySelector('#accountConnectedStreamers');
+        const premiumSection = this.overlay.querySelector('#premiumAccountsSection');
+
+        if (accountEmail) {
+            accountEmail.textContent = this.authUser?.email || '-';
+        }
+
+        if (connectedEl) {
+            connectedEl.textContent = this.connectedUsernames.length > 0
+                ? this.connectedUsernames.map((name) => `@${name}`).join(', ')
+                : 'Bagli yayinci yok';
+        }
+
+        const isPremium = Boolean(this.premiumState?.premium);
+        if (premiumBadge) {
+            premiumBadge.textContent = isPremium ? 'Premium aktif' : 'Aktif degil';
+            premiumBadge.classList.toggle('on', isPremium);
+            premiumBadge.classList.toggle('off', !isPremium);
+        }
+
+        if (premiumUntil) {
+            premiumUntil.textContent = this.premiumState?.premiumUntil
+                ? new Date(this.premiumState.premiumUntil).toLocaleString()
+                : '-';
+        }
+
+        if (premiumSection) {
+            premiumSection.style.display = this.isPremiumAdmin ? 'block' : 'none';
+        }
+    }
+
+    async _buildPremiumHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+
+        const user = window.authSession?.user || this.authUser;
+        if (user?.email) {
+            headers['x-user-email'] = user.email;
+        }
+        if (user?.uid) {
+            headers['x-user-uid'] = user.uid;
+        }
+
+        if (window.authSession && typeof window.authSession.getIdToken === 'function') {
+            try {
+                const token = await window.authSession.getIdToken(false);
+                if (token) {
+                    headers.Authorization = `Bearer ${token}`;
+                }
+            } catch (error) {
+                console.warn('[Settings] Could not get auth token:', error);
+            }
+        }
+
+        return headers;
+    }
+
+    _setActivationMessage(message, type) {
+        const messageEl = this.overlay.querySelector('#activationMessage');
+        if (!messageEl) return;
+
+        messageEl.textContent = message || '';
+        messageEl.classList.remove('error', 'success', 'info');
+
+        if (!message) return;
+        messageEl.classList.add(type || 'info');
+    }
+
+    async _refreshPremiumState() {
+        const user = window.authSession?.user || this.authUser;
+        if (!user) return;
+
+        try {
+            const response = await fetch('/api/premium/me', {
+                method: 'GET',
+                headers: await this._buildPremiumHeaders()
+            });
+
+            if (!response.ok) {
+                const fallback = await response.text();
+                throw new Error(fallback || `Request failed (${response.status})`);
+            }
+
+            const payload = await response.json();
+            this.premiumState = payload;
+            this.isPremiumAdmin = Boolean(payload.isAdmin);
+            this._renderAccountSummary();
+
+            if (this.isPremiumAdmin) {
+                this._refreshPremiumAccounts();
+            }
+        } catch (error) {
+            console.error('[Settings] Premium status fetch failed:', error);
+            this._setActivationMessage('Premium durumu alinamadi.', 'error');
+        }
+    }
+
+    async _redeemActivationCode() {
+        const input = this.overlay.querySelector('#activationCodeInput');
+        const button = this.overlay.querySelector('#redeemActivationBtn');
+        const code = input?.value?.trim();
+
+        if (!code) {
+            this._setActivationMessage('Aktivasyon kodu girin.', 'error');
+            return;
+        }
+
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Aktif ediliyor...';
+        }
+
+        this._setActivationMessage('');
+
+        try {
+            const response = await fetch('/api/premium/redeem', {
+                method: 'POST',
+                headers: await this._buildPremiumHeaders(),
+                body: JSON.stringify({ code })
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || !payload.ok) {
+                throw new Error(payload.error || `Request failed (${response.status})`);
+            }
+
+            this.premiumState = payload;
+            this._renderAccountSummary();
+            this._setActivationMessage('Kod basarili. Premium suresi guncellendi.', 'success');
+
+            if (input) {
+                input.value = '';
+            }
+
+            if (this.isPremiumAdmin) {
+                this._refreshPremiumAccounts();
+            }
+        } catch (error) {
+            console.error('[Settings] Redeem failed:', error);
+            this._setActivationMessage(error.message || 'Kod aktif edilirken hata olustu.', 'error');
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Kodu Aktif Et';
+            }
+        }
+    }
+
+    async _refreshPremiumAccounts() {
+        if (!this.isPremiumAdmin) return;
+
+        const list = this.overlay.querySelector('#premiumAccountsList');
+        if (list) {
+            list.innerHTML = '<div class="premium-account-item muted">Yukleniyor...</div>';
+        }
+
+        try {
+            const response = await fetch('/api/premium/accounts', {
+                method: 'GET',
+                headers: await this._buildPremiumHeaders()
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || !payload.ok) {
+                throw new Error(payload.error || `Request failed (${response.status})`);
+            }
+
+            this._renderPremiumAccounts(payload.accounts || []);
+        } catch (error) {
+            console.error('[Settings] Premium accounts fetch failed:', error);
+            if (list) {
+                list.innerHTML = '<div class="premium-account-item muted">Liste alinamadi</div>';
+            }
+        }
+    }
+
+    _renderPremiumAccounts(accounts) {
+        const list = this.overlay.querySelector('#premiumAccountsList');
+        if (!list) return;
+
+        if (!Array.isArray(accounts) || accounts.length === 0) {
+            list.innerHTML = '<div class="premium-account-item muted">Hesap yok</div>';
+            return;
+        }
+
+        list.innerHTML = accounts.map((account) => {
+            const statusClass = account.premium ? 'on' : 'off';
+            const statusLabel = account.premium ? 'Premium' : 'Standart';
+            const untilLabel = account.premiumUntil
+                ? new Date(account.premiumUntil).toLocaleDateString()
+                : '-';
+
+            return `
+                <div class="premium-account-item">
+                    <div class="premium-account-main">
+                        <strong>${account.email}</strong>
+                        <span>${untilLabel}</span>
+                    </div>
+                    <span class="premium-badge ${statusClass}">${statusLabel}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
     _save() {
         // Read general settings
         this.giftConfig.defaultHp = parseInt(this.overlay.querySelector('#settingDefaultHp').value) || 200;
@@ -497,3 +833,4 @@ class SettingsPanel {
 }
 
 window.SettingsPanel = SettingsPanel;
+

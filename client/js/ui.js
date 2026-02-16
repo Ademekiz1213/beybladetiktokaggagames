@@ -12,6 +12,9 @@ class UIManager {
         this.statusUsername = document.getElementById('statusUsername');
         this.statusDot = this.statusBar?.querySelector('.status-dot');
         this.disconnectBtn = document.getElementById('disconnectBtn');
+        if (this.statusUsername) {
+            this.statusUsername.style.display = 'none';
+        }
 
         this.eventFeed = document.getElementById('eventFeed');
         this.feedList = document.getElementById('feedList');
@@ -132,6 +135,10 @@ class UIManager {
         const streamers = Array.isArray(data.connectedUsernames) ? data.connectedUsernames : [];
         this.connectedStreamers = new Set(streamers.map((name) => this._normalizeUsername(name)));
 
+        if (window.settingsPanel && typeof window.settingsPanel.setConnectionInfo === 'function') {
+            window.settingsPanel.setConnectionInfo(Array.from(this.connectedStreamers));
+        }
+
         if (data.username && !data.connecting) {
             this.pendingConnections.delete(this._normalizeUsername(data.username));
         }
@@ -165,7 +172,7 @@ class UIManager {
         this.statusText.textContent = `Bagli (${this.connectedStreamers.size})`;
         this.statusText.style.color = 'var(--accent-green)';
         this.statusDot.classList.remove('disconnected');
-        this.statusUsername.textContent = this._formatStatusUsernames();
+        this.statusUsername.textContent = '';
     }
 
     _setDisconnectedState() {

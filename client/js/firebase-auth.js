@@ -64,6 +64,11 @@ export function waitForUser() {
     });
 }
 
+export function onAuthChange(callback) {
+    const auth = getReadyAuth();
+    return onAuthStateChanged(auth, callback);
+}
+
 export async function registerWithEmail(email, password) {
     const auth = getReadyAuth();
     return createUserWithEmailAndPassword(auth, email, password);
@@ -83,6 +88,10 @@ export function getReadableAuthError(error) {
     const code = error?.code || '';
 
     switch (code) {
+        case 'auth/configuration-not-found':
+            return 'Firebase Auth konfigrasyonu bulunamadi. Firebase Console > Authentication icinde Get started yapip Email/Password girisini etkinlestir.';
+        case 'auth/operation-not-allowed':
+            return 'Bu giris yontemi aktif degil. Firebase Console > Authentication > Sign-in method altinda Email/Password ac.';
         case 'auth/email-already-in-use':
             return 'Bu email zaten kullaniliyor.';
         case 'auth/invalid-email':

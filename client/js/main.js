@@ -24,11 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize settings panel
     window.settingsPanel = new SettingsPanel(window.game.giftConfig);
+    window.settingsPanel.show();
 
-    // Show settings button when connected
-    window.socketManager.on('tiktok-status', (data) => {
-        if (data.connected) {
-            window.settingsPanel.show();
+    if (window.authSession?.user) {
+        window.settingsPanel.setAuthUser(window.authSession.user);
+    }
+
+    window.addEventListener('auth-ready', (event) => {
+        if (event?.detail?.user) {
+            window.settingsPanel.setAuthUser(event.detail.user);
         }
     });
 

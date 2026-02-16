@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const TikTokHandler = require('./tiktokHandler');
+const { registerPremiumRoutes } = require('./premiumService');
 
 const app = express();
 const server = http.createServer(app);
@@ -13,7 +14,9 @@ const io = new Server(server, {
 const MAX_STREAMERS_PER_TAB = 20;
 
 // Serve client files
+app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, '..', 'client')));
+registerPremiumRoutes(app);
 
 app.get('/health', (_req, res) => {
     res.status(200).json({

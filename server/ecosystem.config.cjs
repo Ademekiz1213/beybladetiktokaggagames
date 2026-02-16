@@ -9,7 +9,10 @@ module.exports = {
       watch: false,
       env: {
         NODE_ENV: 'production',
-        PORT: 3000
+        PORT: 3000,
+        FIREBASE_WEB_API_KEY: '',
+        PREMIUM_ADMIN_EMAILS: '',
+        PREMIUM_CODES: ''
       },
       max_memory_restart: '700M',
       restart_delay: 1000,

@@ -11,6 +11,21 @@ Bu proje tek VPS'te `Node.js + PM2 + Nginx + SSL` ile yayinlanir.
 
 `client/js/firebase-config.js`
 
+5. `server/ecosystem.config.cjs` icindeki su alanlari doldur:
+
+- `FIREBASE_WEB_API_KEY`: Firebase Web API key
+- `PREMIUM_ADMIN_EMAILS`: Premium listesi gorecek admin email(ler), virgulle ayir
+- `PREMIUM_CODES`: Aylik kodlar
+
+Ornek:
+
+```txt
+PREMIUM_ADMIN_EMAILS=seninemailin@gmail.com
+PREMIUM_CODES=AYLIK-2026-02|30|0|28,AYLIK-2026-03|30|0|28
+```
+
+`PREMIUM_CODES` formati: `KOD|sureGun|maxKullanim|tekrarCooldownGun`
+
 ## 1) Sunucuyu hazirla
 
 ```bash

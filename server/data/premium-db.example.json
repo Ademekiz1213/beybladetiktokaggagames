@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "updatedAt": null,
+  "users": {},
+  "codes": {
+    "AYLIK-TEST-30": {
+      "label": "Aylik test kodu",
+      "durationDays": 30,
+      "maxUses": 0,
+      "singleUsePerEmail": false,
+      "reuseCooldownDays": 28,
+      "usedCount": 0,
+      "usedByEmails": [],
+      "active": true,
+      "createdAt": "2026-02-16T00:00:00.000Z"
+    }
+  },
+  "redemptions": []
+}

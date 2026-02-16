@@ -1009,6 +1009,28 @@ body {
     border-top: 1px solid var(--glass-border);
 }
 
+.btn-back-dashboard {
+    display: inline-flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(34, 214, 122, 0.28);
+    background: rgba(34, 214, 122, 0.1);
+    color: #baf8d7;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+.btn-back-dashboard:hover {
+    background: rgba(34, 214, 122, 0.2);
+    border-color: rgba(34, 214, 122, 0.45);
+    transform: translateY(-1px);
+}
+
 .btn-save-settings {
     width: 100%;
     padding: 12px;
@@ -1644,6 +1666,32 @@ body {
     transform: translateY(-1px);
 }
 
+.connection-settings-card {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.connection-settings-card .settings-input-group {
+    margin-bottom: 10px;
+}
+
+.connection-settings-card .settings-connect-btn {
+    letter-spacing: 2px;
+    font-size: 13px;
+    padding: 12px;
+}
+
+.connection-settings-card .settings-connect-actions {
+    margin-top: 10px;
+}
+
+.connection-settings-card .settings-connect-error {
+    margin-top: 10px;
+    animation: none;
+}
+
 .btn-reset-scores {
     width: 100%;
     padding: 10px;
@@ -1777,17 +1825,17 @@ body {
     }
 
     .player-count {
-        top: 140px;
+        top: 8px;
         left: 8px;
     }
 
     .btn-settings {
-        top: 140px;
+        top: 8px;
         right: 8px;
     }
 
     .btn-feed-toggle {
-        top: 140px;
+        top: 8px;
         right: 60px;
     }
 }

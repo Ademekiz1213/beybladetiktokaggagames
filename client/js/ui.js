@@ -2,15 +2,11 @@
 class UIManager {
     constructor() {
         // Elements
-        this.connectOverlay = document.getElementById('connectOverlay');
-        this.usernameInput = document.getElementById('usernameInput');
-        this.connectBtn = document.getElementById('connectBtn');
-        this.connectError = document.getElementById('connectError');
-        this.connectPanelToggle = document.getElementById('connectPanelToggle');
-        this.connectPanelBody = document.getElementById('connectPanelBody');
-        this.connectionStateText = document.getElementById('connectionStateText');
-
-        this.disconnectBtn = document.getElementById('disconnectBtn');
+        this.usernameInput = document.getElementById('settingsUsernameInput');
+        this.connectBtn = document.getElementById('settingsConnectBtn');
+        this.connectError = document.getElementById('settingsConnectError');
+        this.connectionStateText = document.getElementById('settingsConnectionStateText');
+        this.disconnectBtn = document.getElementById('settingsDisconnectBtn');
 
         this.eventFeed = document.getElementById('eventFeed');
         this.feedList = document.getElementById('feedList');
@@ -24,7 +20,6 @@ class UIManager {
         this.eventFeedVisible = true;
         this.connectedStreamers = new Set();
         this.pendingConnections = new Set();
-        this.isConnectionPanelCollapsed = false;
 
         this._createPlayerPanel();
         this._createScoreboard();
@@ -105,13 +100,6 @@ class UIManager {
             window.socketManager.disconnectTikTok();
         });
 
-        this.connectPanelToggle?.addEventListener('click', () => {
-            this.isConnectionPanelCollapsed = !this.isConnectionPanelCollapsed;
-            this.connectOverlay.classList.toggle('is-collapsed', this.isConnectionPanelCollapsed);
-            this.connectPanelToggle.textContent = this.isConnectionPanelCollapsed ? '+' : '−';
-            this.connectPanelToggle.title = this.isConnectionPanelCollapsed ? 'Paneli ac' : 'Paneli kucult';
-        });
-
         // Test mode
         this.testModeBtn?.addEventListener('click', () => this._sendTestEvent());
 
@@ -165,7 +153,6 @@ class UIManager {
     }
 
     _setConnectedState() {
-        this.connectOverlay.style.display = 'block';
         this.eventFeed.style.display = this.eventFeedVisible ? 'block' : 'none';
         this.playerCount.style.display = 'flex';
         this.testModeBtn.style.display = 'block';
@@ -179,7 +166,6 @@ class UIManager {
     }
 
     _setDisconnectedState() {
-        this.connectOverlay.style.display = 'block';
         this.eventFeed.style.display = 'none';
         this.playerCount.style.display = 'none';
         this.testModeBtn.style.display = 'none';
@@ -214,9 +200,16 @@ class UIManager {
     }
 
     _setConnectLoading(isLoading) {
+        if (!this.connectBtn) return;
         this.connectBtn.disabled = isLoading;
-        this.connectBtn.querySelector('.btn-text').style.display = isLoading ? 'none' : 'inline';
-        this.connectBtn.querySelector('.btn-loader').style.display = isLoading ? 'inline' : 'none';
+        const textEl = this.connectBtn.querySelector('.btn-text');
+        const loaderEl = this.connectBtn.querySelector('.btn-loader');
+        if (textEl) {
+            textEl.style.display = isLoading ? 'none' : 'inline';
+        }
+        if (loaderEl) {
+            loaderEl.style.display = isLoading ? 'inline' : 'none';
+        }
     }
 
     _resetConnectBtn() {
@@ -618,5 +611,5 @@ class UIManager {
     }
 }
 
-window.uiManager = new UIManager();
+window.UIManager = UIManager;
 

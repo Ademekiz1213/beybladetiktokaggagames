@@ -15,36 +15,6 @@
     <!-- Canvas (oyun alanı) -->
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Baglanti Paneli -->
-    <div id="connectOverlay" class="connection-dock">
-        <div class="connect-card connect-card-dock">
-            <div class="connect-panel-header">
-                <strong>Yayinci Baglanti Paneli</strong>
-                <button id="connectPanelToggle" type="button" class="panel-mini-btn" title="Paneli kucult">−</button>
-            </div>
-            <div id="connectPanelBody">
-                <div class="input-group">
-                    <label for="usernameInput">TikTok Yayinci Adlari</label>
-                    <div class="input-wrapper">
-                        <span class="input-prefix">@</span>
-                        <input type="text" id="usernameInput" placeholder="yayinci1, yayinci2" autocomplete="off">
-                    </div>
-                </div>
-                <button id="connectBtn" class="btn-connect">
-                    <span class="btn-text">BAGLAN</span>
-                    <span class="btn-loader" style="display:none;">
-                        <span class="spinner"></span> Baglaniyor...
-                    </span>
-                </button>
-                <div class="connect-actions-row">
-                    <button id="disconnectBtn" class="btn-disconnect-wide" type="button">Tumunu Kes</button>
-                    <span id="connectionStateText" class="connection-state-text">Bagli degil</span>
-                </div>
-                <div id="connectError" class="error-message" style="display:none;"></div>
-            </div>
-        </div>
-    </div>
-
     <!-- Event Feed (sağ alt) -->
     <div id="eventFeed" class="event-feed" style="display:none;">
         <div class="feed-header">📡 Canlı Etkinlik</div>

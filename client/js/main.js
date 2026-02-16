@@ -15,9 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Connect to Socket.IO server
-    window.socketManager.connect();
-
     // Initialize game engine (it handles its own render loop)
     window.game = new Game(canvas);
     resizeCanvas();
@@ -25,6 +22,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize settings panel
     window.settingsPanel = new SettingsPanel(window.game.giftConfig);
     window.settingsPanel.show();
+
+    // Initialize UI manager after settings panel so connection controls live inside settings.
+    if (window.UIManager) {
+        window.uiManager = new window.UIManager();
+    }
+
+    // Connect to Socket.IO server after game/ui listeners are ready.
+    window.socketManager.connect();
 
     // Test mode - enhanced with game integration
     const testBtn = document.getElementById('testModeBtn');

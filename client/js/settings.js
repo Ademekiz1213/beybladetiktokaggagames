@@ -37,6 +37,29 @@ class SettingsPanel {
                     <!-- TAB: GENERAL -->
                     <div class="tab-content active" data-tab="general">
                         <div class="settings-section">
+                            <h3>📡 Yayinci Baglanti</h3>
+                            <div class="connection-settings-card">
+                                <div class="input-group settings-input-group">
+                                    <label for="settingsUsernameInput">TikTok Yayinci Adlari</label>
+                                    <div class="input-wrapper">
+                                        <span class="input-prefix">@</span>
+                                        <input type="text" id="settingsUsernameInput" placeholder="yayinci1, yayinci2" autocomplete="off">
+                                    </div>
+                                </div>
+                                <button id="settingsConnectBtn" class="btn-connect settings-connect-btn">
+                                    <span class="btn-text">BAGLAN</span>
+                                    <span class="btn-loader" style="display:none;">
+                                        <span class="spinner"></span> Baglaniyor...
+                                    </span>
+                                </button>
+                                <div class="connect-actions-row settings-connect-actions">
+                                    <button id="settingsDisconnectBtn" class="btn-disconnect-wide" type="button">Tumunu Kes</button>
+                                    <span id="settingsConnectionStateText" class="connection-state-text">Bagli degil</span>
+                                </div>
+                                <div id="settingsConnectError" class="error-message settings-connect-error" style="display:none;"></div>
+                            </div>
+                        </div>
+                        <div class="settings-section">
                             <h3>⚔️ Beyblade Ayarları</h3>
                             <div class="setting-row">
                                 <div class="setting-label">
@@ -146,6 +169,7 @@ class SettingsPanel {
                     </div>
                 </div>
                 <div class="settings-footer">
+                    <a id="backToDashboardBtn" href="/dashboard.html" class="btn-back-dashboard">↩ Dashboard'a Don</a>
                     <button id="openPopupBtn" class="btn-open-popup">🏆 Arena Fatihleri — Ayrı Pencere Aç</button>
                     <button id="resetScoresBtn" class="btn-reset-scores">🗑️ Arena Fatihleri Sıfırla</button>
                     <button id="saveSettingsBtn" class="btn-save-settings">💾 Kaydet</button>

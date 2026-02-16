@@ -6,15 +6,11 @@ class UIManager {
         this.usernameInput = document.getElementById('usernameInput');
         this.connectBtn = document.getElementById('connectBtn');
         this.connectError = document.getElementById('connectError');
+        this.connectPanelToggle = document.getElementById('connectPanelToggle');
+        this.connectPanelBody = document.getElementById('connectPanelBody');
+        this.connectionStateText = document.getElementById('connectionStateText');
 
-        this.statusBar = document.getElementById('statusBar');
-        this.statusText = document.getElementById('statusText');
-        this.statusUsername = document.getElementById('statusUsername');
-        this.statusDot = this.statusBar?.querySelector('.status-dot');
         this.disconnectBtn = document.getElementById('disconnectBtn');
-        if (this.statusUsername) {
-            this.statusUsername.style.display = 'none';
-        }
 
         this.eventFeed = document.getElementById('eventFeed');
         this.feedList = document.getElementById('feedList');
@@ -28,11 +24,13 @@ class UIManager {
         this.eventFeedVisible = true;
         this.connectedStreamers = new Set();
         this.pendingConnections = new Set();
+        this.isConnectionPanelCollapsed = false;
 
         this._createPlayerPanel();
         this._createScoreboard();
         this._createFeedToggle();
         this._bindEvents();
+        this._setDisconnectedState();
     }
 
     _createPlayerPanel() {
@@ -107,6 +105,13 @@ class UIManager {
             window.socketManager.disconnectTikTok();
         });
 
+        this.connectPanelToggle?.addEventListener('click', () => {
+            this.isConnectionPanelCollapsed = !this.isConnectionPanelCollapsed;
+            this.connectOverlay.classList.toggle('is-collapsed', this.isConnectionPanelCollapsed);
+            this.connectPanelToggle.textContent = this.isConnectionPanelCollapsed ? '+' : '−';
+            this.connectPanelToggle.title = this.isConnectionPanelCollapsed ? 'Paneli ac' : 'Paneli kucult';
+        });
+
         // Test mode
         this.testModeBtn?.addEventListener('click', () => this._sendTestEvent());
 
@@ -135,10 +140,6 @@ class UIManager {
         const streamers = Array.isArray(data.connectedUsernames) ? data.connectedUsernames : [];
         this.connectedStreamers = new Set(streamers.map((name) => this._normalizeUsername(name)));
 
-        if (window.settingsPanel && typeof window.settingsPanel.setConnectionInfo === 'function') {
-            window.settingsPanel.setConnectionInfo(Array.from(this.connectedStreamers));
-        }
-
         if (data.username && !data.connecting) {
             this.pendingConnections.delete(this._normalizeUsername(data.username));
         }
@@ -154,36 +155,62 @@ class UIManager {
             this._setDisconnectedState();
         }
 
+        if (data.connecting) {
+            this._updateConnectionStateText('Baglaniyor...');
+        }
+
         if (!data.connecting && this.pendingConnections.size === 0) {
             this._resetConnectBtn();
         }
     }
 
     _setConnectedState() {
-        this.connectOverlay.style.display = 'none';
-        this.statusBar.style.display = 'flex';
+        this.connectOverlay.style.display = 'block';
         this.eventFeed.style.display = this.eventFeedVisible ? 'block' : 'none';
         this.playerCount.style.display = 'flex';
         this.testModeBtn.style.display = 'block';
         this.playerPanel.style.display = 'block';
         this.scoreboardPanel.style.display = 'block';
         this.feedToggleBtn.style.display = 'flex';
-
-        this.statusText.textContent = `Bagli (${this.connectedStreamers.size})`;
-        this.statusText.style.color = 'var(--accent-green)';
-        this.statusDot.classList.remove('disconnected');
-        this.statusUsername.textContent = '';
+        if (this.disconnectBtn) {
+            this.disconnectBtn.disabled = false;
+        }
+        this._updateConnectionStateText();
     }
 
     _setDisconnectedState() {
-        this.connectOverlay.style.display = 'flex';
-        this.statusBar.style.display = 'none';
+        this.connectOverlay.style.display = 'block';
         this.eventFeed.style.display = 'none';
         this.playerCount.style.display = 'none';
         this.testModeBtn.style.display = 'none';
         this.playerPanel.style.display = 'none';
         this.scoreboardPanel.style.display = 'none';
         this.feedToggleBtn.style.display = 'none';
+        if (this.disconnectBtn) {
+            this.disconnectBtn.disabled = true;
+        }
+        this._updateConnectionStateText();
+    }
+
+    _updateConnectionStateText(overrideText) {
+        if (!this.connectionStateText) return;
+
+        if (overrideText) {
+            this.connectionStateText.textContent = overrideText;
+            this.connectionStateText.classList.remove('is-connected');
+            this.connectionStateText.classList.add('is-pending');
+            return;
+        }
+
+        if (this.connectedStreamers.size > 0) {
+            this.connectionStateText.textContent = `${this.connectedStreamers.size} yayinci bagli`;
+            this.connectionStateText.classList.add('is-connected');
+            this.connectionStateText.classList.remove('is-pending');
+            return;
+        }
+
+        this.connectionStateText.textContent = 'Bagli degil';
+        this.connectionStateText.classList.remove('is-connected', 'is-pending');
     }
 
     _setConnectLoading(isLoading) {
@@ -223,13 +250,6 @@ class UIManager {
         }
 
         return usernames;
-    }
-
-    _formatStatusUsernames() {
-        const names = Array.from(this.connectedStreamers).map((name) => `@${name}`);
-        const label = names.join(', ');
-        this.statusUsername.title = label;
-        return label;
     }
 
     // Feed methods

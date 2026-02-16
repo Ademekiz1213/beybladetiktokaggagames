@@ -12,15 +12,41 @@
 </head>
 
 <body class="auth-body">
-    <main class="auth-shell">
-        <section class="auth-card">
-            <p class="eyebrow">Dashboard</p>
-            <h1>Hos geldin</h1>
-            <p class="auth-copy">Giris yapan hesap: <strong id="userEmail">-</strong></p>
+    <main class="auth-shell auth-shell-wide">
+        <section class="auth-card dashboard-card">
+            <div class="dashboard-header">
+                <div>
+                    <p class="eyebrow">Dashboard</p>
+                    <h1>Hesap Paneli</h1>
+                    <p class="auth-copy">Giris yapan hesap: <strong id="userEmail">-</strong></p>
+                </div>
+                <button id="logoutBtn" class="btn btn-secondary dashboard-logout" type="button">Cikis Yap</button>
+            </div>
 
-            <div class="auth-actions auth-actions-vertical">
+            <div class="dashboard-grid">
+                <section class="dashboard-panel">
+                    <h2>Premium Durumu</h2>
+                    <p id="premiumStateBadge" class="dashboard-badge">Yukleniyor...</p>
+                    <p class="dashboard-meta">Bitis Tarihi: <strong id="premiumUntil">-</strong></p>
+                    <p class="dashboard-meta">Kalan Gun: <strong id="premiumDays">0</strong></p>
+                    <button id="refreshPremiumBtn" class="btn btn-secondary" type="button">Durumu Yenile</button>
+                </section>
+
+                <section class="dashboard-panel">
+                    <h2>Kod Aktivasyonu</h2>
+                    <p class="auth-copy">Aylik aktivasyon kodunu burada girerek premium suresini uzatabilirsin.</p>
+                    <form id="redeemForm" class="dashboard-form">
+                        <label for="activationCodeInput">Aktivasyon Kodu</label>
+                        <input id="activationCodeInput" name="code" type="text" placeholder="Kodu girin" autocomplete="off">
+                        <button id="redeemBtn" class="btn btn-primary" type="submit">Kodu Aktif Et</button>
+                    </form>
+                    <p id="dashboardMessage" class="dashboard-message" style="display:none;"></p>
+                </section>
+            </div>
+
+            <div class="auth-actions">
                 <a class="btn btn-primary" href="/game.html">Oyuna Gir</a>
-                <button id="logoutBtn" class="btn btn-secondary" type="button">Cikis Yap</button>
+                <a id="adminPanelLink" class="btn btn-secondary" href="/admin.html" style="display:none;">Admin Panel</a>
             </div>
         </section>
     </main>

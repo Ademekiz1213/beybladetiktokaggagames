@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Beyblade Arena</title>
+    <link rel="stylesheet" href="css/auth.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body class="auth-body">
+    <main class="auth-shell auth-shell-admin">
+        <section class="auth-card admin-card">
+            <div class="admin-header">
+                <div>
+                    <p class="eyebrow">Admin Panel</p>
+                    <h1>Premium Yonetimi</h1>
+                    <p class="auth-copy">Yonetici: <strong id="adminEmail">-</strong></p>
+                </div>
+                <div class="admin-header-actions">
+                    <a class="btn btn-secondary" href="/dashboard.html">Dashboard</a>
+                    <button id="adminLogoutBtn" class="btn btn-secondary" type="button">Cikis Yap</button>
+                </div>
+            </div>
+
+            <p id="adminMessage" class="dashboard-message" style="display:none;"></p>
+
+            <div class="admin-grid">
+                <section class="admin-panel">
+                    <div class="admin-panel-head">
+                        <h2>Kod Yonetimi</h2>
+                        <button id="refreshCodesBtn" class="btn btn-secondary" type="button">Kodlari Yenile</button>
+                    </div>
+
+                    <form id="codeForm" class="admin-form">
+                        <label for="codeValue">Kod</label>
+                        <input id="codeValue" name="code" type="text" placeholder="ORN: AYLIK-30">
+
+                        <label for="codeLabel">Aciklama</label>
+                        <input id="codeLabel" name="label" type="text" placeholder="Aylik paket kodu">
+
+                        <div class="admin-row">
+                            <div>
+                                <label for="codeDurationDays">Sure (gun)</label>
+                                <input id="codeDurationDays" name="durationDays" type="number" min="1" value="30">
+                            </div>
+                            <div>
+                                <label for="codeMaxUses">Maks kullanim (0 = limitsiz)</label>
+                                <input id="codeMaxUses" name="maxUses" type="number" min="0" value="0">
+                            </div>
+                        </div>
+
+                        <div class="admin-row">
+                            <div>
+                                <label for="codeCooldownDays">Ayni hesap tekrar (gun)</label>
+                                <input id="codeCooldownDays" name="reuseCooldownDays" type="number" min="0" value="28">
+                            </div>
+                            <div>
+                                <label for="codeExpiresAt">Son kullanma (opsiyonel)</label>
+                                <input id="codeExpiresAt" name="expiresAt" type="datetime-local">
+                            </div>
+                        </div>
+
+                        <div class="admin-checkbox-row">
+                            <label><input id="codeSingleUse" name="singleUsePerEmail" type="checkbox" checked> Hesap basi tek kullanim</label>
+                            <label><input id="codeActive" name="active" type="checkbox" checked> Kod aktif</label>
+                        </div>
+
+                        <button id="saveCodeBtn" class="btn btn-primary" type="submit">Kodu Kaydet / Guncelle</button>
+                    </form>
+
+                    <div id="codesList" class="admin-list"></div>
+                </section>
+
+                <section class="admin-panel">
+                    <div class="admin-panel-head">
+                        <h2>Premium Hesaplar</h2>
+                        <button id="refreshAccountsBtn" class="btn btn-secondary" type="button">Hesaplari Yenile</button>
+                    </div>
+
+                    <form id="grantForm" class="admin-form">
+                        <label for="grantEmail">Hesap Email</label>
+                        <input id="grantEmail" name="email" type="email" placeholder="kullanici@email.com">
+
+                        <label for="grantDays">Eklenecek sure (gun)</label>
+                        <input id="grantDays" name="durationDays" type="number" min="1" value="30">
+
+                        <div class="admin-actions">
+                            <button id="grantBtn" class="btn btn-primary" type="submit">Premium Ver / Uzat</button>
+                            <button id="revokeBtn" class="btn btn-danger" type="button">Premium Iptal Et</button>
+                        </div>
+                    </form>
+
+                    <div id="accountsList" class="admin-list"></div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/firebase-config.js"></script>
+    <script type="module" src="js/admin.js"></script>
+</body>
+
+</html>

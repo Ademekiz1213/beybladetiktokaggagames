@@ -263,6 +263,68 @@ function canRedeemByCooldown(record, code, cooldownDays) {
     };
 }
 
+function toAccountPayload(record) {
+    const snapshot = buildPremiumSnapshot(record);
+    return {
+        email: record.email,
+        premium: snapshot.premium,
+        premiumUntil: snapshot.premiumUntil,
+        daysRemaining: snapshot.daysRemaining,
+        lastActivationCode: record.lastActivationCode || null,
+        updatedAt: record.updatedAt || null
+    };
+}
+
+function sortAccounts(accounts) {
+    return accounts.sort((a, b) => {
+        if (a.premium === b.premium) {
+            return String(a.email).localeCompare(String(b.email));
+        }
+        return a.premium ? -1 : 1;
+    });
+}
+
+function toCodePayload(code, record) {
+    const maxUses = Math.max(0, Math.floor(toNumber(record.maxUses, 0)));
+    const usedCount = Math.max(0, Math.floor(toNumber(record.usedCount, 0)));
+    const expiresAtMs = parseDateMs(record.expiresAt);
+    const nowMs = Date.now();
+    const expired = Boolean(expiresAtMs && expiresAtMs <= nowMs);
+    const remainingUses = maxUses > 0 ? Math.max(0, maxUses - usedCount) : null;
+
+    return {
+        code,
+        label: record.label || '',
+        durationDays: Math.max(1, Math.floor(toNumber(record.durationDays, 30))),
+        maxUses,
+        usedCount,
+        remainingUses,
+        singleUsePerEmail: record.singleUsePerEmail !== false,
+        reuseCooldownDays: Math.max(0, Math.floor(toNumber(record.reuseCooldownDays, 28))),
+        active: record.active !== false,
+        expiresAt: record.expiresAt || null,
+        expired,
+        createdAt: record.createdAt || null,
+        updatedAt: record.updatedAt || null,
+        lastUsedAt: record.lastUsedAt || null
+    };
+}
+
+async function resolveAdminUser(req, res) {
+    const user = await resolveRequestUser(req);
+    if (!user) {
+        res.status(401).json({ ok: false, error: 'Unauthorized' });
+        return null;
+    }
+
+    if (!isAdminEmail(user.email)) {
+        res.status(403).json({ ok: false, error: 'Forbidden' });
+        return null;
+    }
+
+    return user;
+}
+
 async function registerPremiumRoutes(app) {
     app.get('/api/premium/me', async (req, res) => {
         try {
@@ -387,32 +449,13 @@ async function registerPremiumRoutes(app) {
 
     app.get('/api/premium/accounts', async (req, res) => {
         try {
-            const user = await resolveRequestUser(req);
+            const user = await resolveAdminUser(req, res);
             if (!user) {
-                return res.status(401).json({ ok: false, error: 'Unauthorized' });
-            }
-
-            if (!isAdminEmail(user.email)) {
-                return res.status(403).json({ ok: false, error: 'Forbidden' });
+                return;
             }
 
             const db = await readDb();
-            const accounts = Object.values(db.users).map((record) => {
-                const snapshot = buildPremiumSnapshot(record);
-                return {
-                    email: record.email,
-                    premium: snapshot.premium,
-                    premiumUntil: snapshot.premiumUntil,
-                    daysRemaining: snapshot.daysRemaining,
-                    lastActivationCode: record.lastActivationCode || null,
-                    updatedAt: record.updatedAt || null
-                };
-            }).sort((a, b) => {
-                if (a.premium === b.premium) {
-                    return String(a.email).localeCompare(String(b.email));
-                }
-                return a.premium ? -1 : 1;
-            });
+            const accounts = sortAccounts(Object.values(db.users).map((record) => toAccountPayload(record)));
 
             return res.json({
                 ok: true,
@@ -421,6 +464,180 @@ async function registerPremiumRoutes(app) {
             });
         } catch (error) {
             console.error('[Premium] /accounts failed:', error);
+            return res.status(500).json({ ok: false, error: 'Internal error' });
+        }
+    });
+
+    app.get('/api/premium/codes', async (req, res) => {
+        try {
+            const user = await resolveAdminUser(req, res);
+            if (!user) {
+                return;
+            }
+
+            const db = await readDb();
+            const codes = Object.entries(db.codes || {})
+                .map(([code, record]) => toCodePayload(code, record))
+                .sort((a, b) => String(a.code).localeCompare(String(b.code)));
+
+            return res.json({
+                ok: true,
+                total: codes.length,
+                codes
+            });
+        } catch (error) {
+            console.error('[Premium] /codes failed:', error);
+            return res.status(500).json({ ok: false, error: 'Internal error' });
+        }
+    });
+
+    app.post('/api/premium/codes', async (req, res) => {
+        try {
+            const user = await resolveAdminUser(req, res);
+            if (!user) {
+                return;
+            }
+
+            const code = normalizeCode(req.body?.code);
+            if (!code) {
+                return res.status(400).json({ ok: false, error: 'Code is required' });
+            }
+
+            const db = await readDb();
+            const current = db.codes[code] || {};
+            const now = nowIso();
+
+            const durationDays = Math.max(1, Math.floor(toNumber(req.body?.durationDays, current.durationDays || 30)));
+            const maxUses = Math.max(0, Math.floor(toNumber(req.body?.maxUses, current.maxUses || 0)));
+            const reuseCooldownDays = Math.max(0, Math.floor(toNumber(req.body?.reuseCooldownDays, current.reuseCooldownDays || 28)));
+            const singleUsePerEmail = req.body?.singleUsePerEmail == null
+                ? (current.singleUsePerEmail !== false)
+                : Boolean(req.body.singleUsePerEmail);
+            const active = req.body?.active == null ? (current.active !== false) : Boolean(req.body.active);
+            const label = String(req.body?.label || current.label || '').trim();
+
+            let expiresAt = null;
+            if (req.body?.expiresAt) {
+                const expiresAtMs = parseDateMs(req.body.expiresAt);
+                if (!expiresAtMs) {
+                    return res.status(400).json({ ok: false, error: 'expiresAt must be a valid date' });
+                }
+                expiresAt = new Date(expiresAtMs).toISOString();
+            } else if (current.expiresAt) {
+                expiresAt = current.expiresAt;
+            }
+
+            db.codes[code] = {
+                label,
+                durationDays,
+                maxUses,
+                singleUsePerEmail,
+                reuseCooldownDays,
+                usedCount: Math.max(0, Math.floor(toNumber(current.usedCount, 0))),
+                usedByEmails: Array.isArray(current.usedByEmails) ? current.usedByEmails : [],
+                active,
+                expiresAt,
+                createdAt: current.createdAt || now,
+                updatedAt: now,
+                lastUsedAt: current.lastUsedAt || null
+            };
+
+            await writeDb(db);
+
+            return res.json({
+                ok: true,
+                code: toCodePayload(code, db.codes[code])
+            });
+        } catch (error) {
+            console.error('[Premium] /codes upsert failed:', error);
+            return res.status(500).json({ ok: false, error: 'Internal error' });
+        }
+    });
+
+    app.post('/api/premium/accounts/grant', async (req, res) => {
+        try {
+            const adminUser = await resolveAdminUser(req, res);
+            if (!adminUser) {
+                return;
+            }
+
+            const targetEmail = normalizeEmail(req.body?.email);
+            if (!targetEmail) {
+                return res.status(400).json({ ok: false, error: 'Email is required' });
+            }
+
+            const durationDays = Math.max(1, Math.floor(toNumber(req.body?.durationDays, 30)));
+            const db = await readDb();
+            const record = upsertUserRecord(db, targetEmail);
+
+            const nowMs = Date.now();
+            const currentPremiumUntilMs = parseDateMs(record.premiumUntil) || 0;
+            const baseMs = Math.max(nowMs, currentPremiumUntilMs);
+            const premiumUntilMs = baseMs + (durationDays * DAY_MS);
+            const updatedAt = nowIso();
+
+            record.premiumUntil = new Date(premiumUntilMs).toISOString();
+            record.lastActivationCode = `ADMIN-GRANT-${durationDays}`;
+            record.updatedAt = updatedAt;
+            record.activationHistory.push({
+                code: 'ADMIN-GRANT',
+                durationDays,
+                redeemedAt: updatedAt,
+                adminEmail: adminUser.email
+            });
+            if (record.activationHistory.length > 100) {
+                record.activationHistory = record.activationHistory.slice(-100);
+            }
+
+            await writeDb(db);
+
+            return res.json({
+                ok: true,
+                account: toAccountPayload(record)
+            });
+        } catch (error) {
+            console.error('[Premium] /accounts/grant failed:', error);
+            return res.status(500).json({ ok: false, error: 'Internal error' });
+        }
+    });
+
+    app.post('/api/premium/accounts/revoke', async (req, res) => {
+        try {
+            const adminUser = await resolveAdminUser(req, res);
+            if (!adminUser) {
+                return;
+            }
+
+            const targetEmail = normalizeEmail(req.body?.email);
+            if (!targetEmail) {
+                return res.status(400).json({ ok: false, error: 'Email is required' });
+            }
+
+            const db = await readDb();
+            const record = upsertUserRecord(db, targetEmail);
+            const updatedAt = nowIso();
+
+            record.premiumUntil = null;
+            record.lastActivationCode = 'ADMIN-REVOKE';
+            record.updatedAt = updatedAt;
+            record.activationHistory.push({
+                code: 'ADMIN-REVOKE',
+                durationDays: 0,
+                redeemedAt: updatedAt,
+                adminEmail: adminUser.email
+            });
+            if (record.activationHistory.length > 100) {
+                record.activationHistory = record.activationHistory.slice(-100);
+            }
+
+            await writeDb(db);
+
+            return res.json({
+                ok: true,
+                account: toAccountPayload(record)
+            });
+        } catch (error) {
+            console.error('[Premium] /accounts/revoke failed:', error);
             return res.status(500).json({ ok: false, error: 'Internal error' });
         }
     });

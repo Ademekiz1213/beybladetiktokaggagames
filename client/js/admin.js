@@ -1,0 +1,362 @@
+import { logoutCurrentUser, waitForUser } from './firebase-auth.js';
+
+function toIsoFromInput(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString();
+}
+
+function toInputDateTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function formatDate(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString();
+}
+
+function setMessage(message, type = 'info') {
+    const messageEl = document.getElementById('adminMessage');
+    if (!messageEl) return;
+
+    if (!message) {
+        messageEl.style.display = 'none';
+        messageEl.textContent = '';
+        messageEl.classList.remove('is-success', 'is-error', 'is-info');
+        return;
+    }
+
+    messageEl.style.display = 'block';
+    messageEl.textContent = message;
+    messageEl.classList.remove('is-success', 'is-error', 'is-info');
+    messageEl.classList.add(`is-${type}`);
+}
+
+async function buildAuthHeaders(user, includeJson = false) {
+    const headers = {};
+    if (includeJson) {
+        headers['Content-Type'] = 'application/json';
+    }
+
+    if (user?.email) {
+        headers['x-user-email'] = user.email;
+    }
+    if (user?.uid) {
+        headers['x-user-uid'] = user.uid;
+    }
+
+    try {
+        const token = await user.getIdToken(false);
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
+        }
+    } catch (error) {
+        console.warn('[Admin] Could not load Firebase token:', error);
+    }
+
+    return headers;
+}
+
+async function fetchApi(url, { method = 'GET', user, body } = {}) {
+    const response = await fetch(url, {
+        method,
+        headers: await buildAuthHeaders(user, Boolean(body)),
+        body: body ? JSON.stringify(body) : undefined
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) {
+        throw new Error(payload.error || `Request failed (${response.status})`);
+    }
+
+    return payload;
+}
+
+function renderCodes(codes) {
+    const list = document.getElementById('codesList');
+    if (!list) return;
+
+    if (!Array.isArray(codes) || codes.length === 0) {
+        list.innerHTML = '<div class="admin-list-empty">Kod yok</div>';
+        return;
+    }
+
+    list.innerHTML = codes.map((code) => {
+        const statusClass = code.active && !code.expired ? 'is-on' : 'is-off';
+        const statusLabel = code.active && !code.expired ? 'Aktif' : 'Pasif';
+        const usageLabel = code.maxUses > 0 ? `${code.usedCount}/${code.maxUses}` : `${code.usedCount}/∞`;
+
+        return `
+            <div class="admin-item" data-code="${code.code}">
+                <div class="admin-item-main">
+                    <strong>${code.code}</strong>
+                    <span>${code.label || '-'}</span>
+                </div>
+                <div class="admin-item-meta">
+                    <span class="dashboard-badge ${statusClass}">${statusLabel}</span>
+                    <span>Sure: ${code.durationDays} gun</span>
+                    <span>Kullanim: ${usageLabel}</span>
+                    <span>Bitis: ${formatDate(code.expiresAt)}</span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-small code-edit-btn" data-code="${code.code}">Duzenle</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderAccounts(accounts) {
+    const list = document.getElementById('accountsList');
+    if (!list) return;
+
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+        list.innerHTML = '<div class="admin-list-empty">Hesap yok</div>';
+        return;
+    }
+
+    list.innerHTML = accounts.map((account) => {
+        const statusClass = account.premium ? 'is-on' : 'is-off';
+        const statusLabel = account.premium ? 'Premium' : 'Standart';
+        return `
+            <div class="admin-item">
+                <div class="admin-item-main">
+                    <strong>${account.email}</strong>
+                    <span>Son Kod: ${account.lastActivationCode || '-'}</span>
+                </div>
+                <div class="admin-item-meta">
+                    <span class="dashboard-badge ${statusClass}">${statusLabel}</span>
+                    <span>Bitis: ${formatDate(account.premiumUntil)}</span>
+                    <span>Kalan: ${account.daysRemaining || 0} gun</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function fillCodeForm(code) {
+    document.getElementById('codeValue').value = code.code || '';
+    document.getElementById('codeLabel').value = code.label || '';
+    document.getElementById('codeDurationDays').value = String(code.durationDays || 30);
+    document.getElementById('codeMaxUses').value = String(code.maxUses || 0);
+    document.getElementById('codeCooldownDays').value = String(code.reuseCooldownDays || 28);
+    document.getElementById('codeSingleUse').checked = code.singleUsePerEmail !== false;
+    document.getElementById('codeActive').checked = code.active !== false;
+    document.getElementById('codeExpiresAt').value = toInputDateTime(code.expiresAt);
+}
+
+async function initAdminPage() {
+    const user = await waitForUser();
+    if (!user) {
+        window.location.replace('/login.html');
+        return;
+    }
+
+    const adminEmail = document.getElementById('adminEmail');
+    if (adminEmail) {
+        adminEmail.textContent = user.email || '-';
+    }
+
+    const logoutBtn = document.getElementById('adminLogoutBtn');
+    logoutBtn?.addEventListener('click', async () => {
+        logoutBtn.disabled = true;
+        logoutBtn.textContent = 'Cikis yapiliyor...';
+        try {
+            await logoutCurrentUser();
+            window.location.replace('/login.html');
+        } catch (error) {
+            setMessage(error.message || 'Cikis yapilamadi.', 'error');
+            logoutBtn.disabled = false;
+            logoutBtn.textContent = 'Cikis Yap';
+        }
+    });
+
+    const mePayload = await fetchApi('/api/premium/me', { user });
+    if (!mePayload.isAdmin) {
+        window.location.replace('/dashboard.html');
+        return;
+    }
+
+    let cachedCodes = [];
+
+    async function refreshCodes() {
+        const payload = await fetchApi('/api/premium/codes', { user });
+        cachedCodes = payload.codes || [];
+        renderCodes(cachedCodes);
+    }
+
+    async function refreshAccounts() {
+        const payload = await fetchApi('/api/premium/accounts', { user });
+        renderAccounts(payload.accounts || []);
+    }
+
+    document.getElementById('refreshCodesBtn')?.addEventListener('click', async () => {
+        setMessage('');
+        try {
+            await refreshCodes();
+        } catch (error) {
+            setMessage(error.message || 'Kod listesi alinamadi.', 'error');
+        }
+    });
+
+    document.getElementById('refreshAccountsBtn')?.addEventListener('click', async () => {
+        setMessage('');
+        try {
+            await refreshAccounts();
+        } catch (error) {
+            setMessage(error.message || 'Hesap listesi alinamadi.', 'error');
+        }
+    });
+
+    document.getElementById('codeForm')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setMessage('');
+
+        const code = String(document.getElementById('codeValue').value || '').trim();
+        if (!code) {
+            setMessage('Kod alani zorunlu.', 'error');
+            return;
+        }
+
+        const expiresAtRaw = document.getElementById('codeExpiresAt').value;
+        const expiresAtIso = toIsoFromInput(expiresAtRaw);
+        if (expiresAtRaw && !expiresAtIso) {
+            setMessage('Son kullanma tarihi gecersiz.', 'error');
+            return;
+        }
+
+        const payload = {
+            code,
+            label: String(document.getElementById('codeLabel').value || '').trim(),
+            durationDays: Number(document.getElementById('codeDurationDays').value || 30),
+            maxUses: Number(document.getElementById('codeMaxUses').value || 0),
+            reuseCooldownDays: Number(document.getElementById('codeCooldownDays').value || 28),
+            singleUsePerEmail: document.getElementById('codeSingleUse').checked,
+            active: document.getElementById('codeActive').checked,
+            expiresAt: expiresAtIso || null
+        };
+
+        const saveBtn = document.getElementById('saveCodeBtn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Kaydediliyor...';
+        }
+
+        try {
+            await fetchApi('/api/premium/codes', {
+                method: 'POST',
+                user,
+                body: payload
+            });
+
+            setMessage('Kod kaydedildi.', 'success');
+            await refreshCodes();
+        } catch (error) {
+            setMessage(error.message || 'Kod kaydedilemedi.', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Kodu Kaydet / Guncelle';
+            }
+        }
+    });
+
+    document.getElementById('codesList')?.addEventListener('click', (event) => {
+        const button = event.target.closest('.code-edit-btn');
+        if (!button) return;
+
+        const targetCode = String(button.dataset.code || '');
+        const codeEntry = cachedCodes.find((item) => item.code === targetCode);
+        if (!codeEntry) return;
+
+        fillCodeForm(codeEntry);
+    });
+
+    document.getElementById('grantForm')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setMessage('');
+
+        const email = String(document.getElementById('grantEmail').value || '').trim();
+        const durationDays = Number(document.getElementById('grantDays').value || 30);
+        if (!email) {
+            setMessage('Hesap email alani zorunlu.', 'error');
+            return;
+        }
+
+        const grantBtn = document.getElementById('grantBtn');
+        if (grantBtn) {
+            grantBtn.disabled = true;
+            grantBtn.textContent = 'Isleniyor...';
+        }
+
+        try {
+            await fetchApi('/api/premium/accounts/grant', {
+                method: 'POST',
+                user,
+                body: { email, durationDays }
+            });
+            setMessage('Premium suresi guncellendi.', 'success');
+            await refreshAccounts();
+        } catch (error) {
+            setMessage(error.message || 'Premium verilemedi.', 'error');
+        } finally {
+            if (grantBtn) {
+                grantBtn.disabled = false;
+                grantBtn.textContent = 'Premium Ver / Uzat';
+            }
+        }
+    });
+
+    document.getElementById('revokeBtn')?.addEventListener('click', async () => {
+        setMessage('');
+        const email = String(document.getElementById('grantEmail').value || '').trim();
+        if (!email) {
+            setMessage('Iptal icin email alani zorunlu.', 'error');
+            return;
+        }
+
+        const revokeBtn = document.getElementById('revokeBtn');
+        if (revokeBtn) {
+            revokeBtn.disabled = true;
+            revokeBtn.textContent = 'Isleniyor...';
+        }
+
+        try {
+            await fetchApi('/api/premium/accounts/revoke', {
+                method: 'POST',
+                user,
+                body: { email }
+            });
+            setMessage('Premium iptal edildi.', 'success');
+            await refreshAccounts();
+        } catch (error) {
+            setMessage(error.message || 'Premium iptal edilemedi.', 'error');
+        } finally {
+            if (revokeBtn) {
+                revokeBtn.disabled = false;
+                revokeBtn.textContent = 'Premium Iptal Et';
+            }
+        }
+    });
+
+    try {
+        await Promise.all([refreshCodes(), refreshAccounts()]);
+    } catch (error) {
+        setMessage(error.message || 'Veriler yuklenemedi.', 'error');
+    }
+}
+
+initAdminPage().catch((error) => {
+    console.error('[Admin] Init failed:', error);
+    setMessage(error.message || 'Admin panel baslatilamadi.', 'error');
+});

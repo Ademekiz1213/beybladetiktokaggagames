@@ -26,16 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.settingsPanel = new SettingsPanel(window.game.giftConfig);
     window.settingsPanel.show();
 
-    if (window.authSession?.user) {
-        window.settingsPanel.setAuthUser(window.authSession.user);
-    }
-
-    window.addEventListener('auth-ready', (event) => {
-        if (event?.detail?.user) {
-            window.settingsPanel.setAuthUser(event.detail.user);
-        }
-    });
-
     // Test mode - enhanced with game integration
     const testBtn = document.getElementById('testModeBtn');
     if (testBtn) {

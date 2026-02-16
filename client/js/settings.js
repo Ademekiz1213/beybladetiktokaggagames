@@ -163,6 +163,15 @@ class SettingsPanel {
                     <div class="tab-content" data-tab="gifts">
                         <div class="settings-section">
                             <h3>🎁 Hediye Ayarları</h3>
+                            <a
+                                id="giftNameSiteBtn"
+                                class="btn-gift-site"
+                                href="https://ademekiz1213.github.io/tiktokgiftname/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                🔗 Hediye Isimleri Sitesini Ac
+                            </a>
                             <div id="giftSettingsList" class="gift-settings-list"></div>
                             <button id="addGiftBtn" class="btn-add-gift">+ Hediye Ekle</button>
                         </div>

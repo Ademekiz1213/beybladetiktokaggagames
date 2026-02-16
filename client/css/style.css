@@ -1004,6 +1004,29 @@ body {
     border-color: var(--accent-cyan);
 }
 
+.btn-gift-site {
+    display: inline-flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 212, 255, 0.28);
+    background: rgba(0, 212, 255, 0.08);
+    color: var(--accent-cyan);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+.btn-gift-site:hover {
+    background: rgba(0, 212, 255, 0.18);
+    border-color: rgba(0, 212, 255, 0.45);
+    transform: translateY(-1px);
+}
+
 .settings-footer {
     padding: 16px 24px;
     border-top: 1px solid var(--glass-border);

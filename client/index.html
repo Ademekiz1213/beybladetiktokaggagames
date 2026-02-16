@@ -1,0 +1,84 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌀 Beyblade TikTok Arena</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Canvas (oyun alanı) -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Bağlantı Overlay -->
+    <div id="connectOverlay" class="overlay">
+        <div class="connect-card">
+            <div class="logo-container">
+                <div class="beyblade-icon">🌀</div>
+                <h1>BEYBLADE<span class="accent">ARENA</span></h1>
+                <p class="subtitle">TikTok Live Interactive Game</p>
+            </div>
+            <div class="input-group">
+                <label for="usernameInput">TikTok Yayinci Adlari</label>
+                <div class="input-wrapper">
+                    <span class="input-prefix">@</span>
+                    <input type="text" id="usernameInput" placeholder="yayinci1, yayinci2" autocomplete="off">
+                </div>
+            </div>
+            <button id="connectBtn" class="btn-connect">
+                <span class="btn-text">BAGLAN</span>
+                <span class="btn-loader" style="display:none;">
+                    <span class="spinner"></span> Bağlanıyor...
+                </span>
+            </button>
+            <div id="connectError" class="error-message" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- Bağlantı Durumu Bar -->
+    <div id="statusBar" class="status-bar" style="display:none;">
+        <div class="status-indicator">
+            <span class="status-dot"></span>
+            <span id="statusText">Bağlı</span>
+        </div>
+        <span id="statusUsername" class="status-username"></span>
+        <button id="disconnectBtn" class="btn-disconnect" title="Tum baglantilari kes">✕</button>
+    </div>
+
+    <!-- Event Feed (sağ alt) -->
+    <div id="eventFeed" class="event-feed" style="display:none;">
+        <div class="feed-header">📡 Canlı Etkinlik</div>
+        <div id="feedList" class="feed-list"></div>
+    </div>
+
+    <!-- Aktif Oyuncu Sayısı -->
+    <div id="playerCount" class="player-count" style="display:none;">
+        <span class="count-icon">🌀</span>
+        <span id="activeCount">0</span>
+        <span class="count-label">Aktif</span>
+    </div>
+
+    <!-- Test Mode butonu -->
+    <button id="testModeBtn" class="btn-test" style="display:none;" title="Test Modu">🧪 Test</button>
+
+    <!-- Scripts - sıra önemli! -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/socket.js"></script>
+    <script src="js/arena.js"></script>
+    <script src="js/beyblade.js"></script>
+    <script src="js/physics.js"></script>
+    <script src="js/soundManager.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/giftConfig.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>

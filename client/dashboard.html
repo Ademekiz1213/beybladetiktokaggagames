@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Beyblade Arena</title>
+    <link rel="stylesheet" href="css/auth.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body class="auth-body">
+    <main class="auth-shell">
+        <section class="auth-card">
+            <p class="eyebrow">Dashboard</p>
+            <h1>Hos geldin</h1>
+            <p class="auth-copy">Giris yapan hesap: <strong id="userEmail">-</strong></p>
+
+            <div class="auth-actions auth-actions-vertical">
+                <a class="btn btn-primary" href="/game.html">Oyuna Gir</a>
+                <button id="logoutBtn" class="btn btn-secondary" type="button">Cikis Yap</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/firebase-config.js"></script>
+    <script type="module" src="js/dashboard.js"></script>
+</body>
+
+</html>

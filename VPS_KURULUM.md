@@ -2,6 +2,15 @@
 
 Bu proje tek VPS'te `Node.js + PM2 + Nginx + SSL` ile yayinlanir.
 
+## 0) Firebase Auth hazirlik
+
+1. Firebase Console'da proje olustur.
+2. Authentication > Sign-in method > `Email/Password` secenegini ac.
+3. Project settings > General > Web App olustur.
+4. Asagidaki dosyayi gercek degerlerle doldur:
+
+`client/js/firebase-config.js`
+
 ## 1) Sunucuyu hazirla
 
 ```bash

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giris - Beyblade Arena</title>
+    <link rel="stylesheet" href="css/auth.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body class="auth-body">
+    <main class="auth-shell">
+        <section class="auth-card">
+            <p class="eyebrow">Hesap</p>
+            <h1>Giris Yap</h1>
+            <p class="auth-copy">Devam etmek icin email ve sifre gir.</p>
+
+            <form id="loginForm" class="auth-form">
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email" autocomplete="email" required>
+
+                <label for="password">Sifre</label>
+                <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+                <button id="loginBtn" class="btn btn-primary" type="submit">Giris Yap</button>
+                <p id="loginError" class="auth-error" style="display:none;"></p>
+            </form>
+
+            <p class="auth-footnote">
+                Hesabin yok mu?
+                <a href="/register.html">Kayit ol</a>
+            </p>
+        </section>
+    </main>
+
+    <script src="js/firebase-config.js"></script>
+    <script type="module" src="js/login.js"></script>
+</body>
+
+</html>

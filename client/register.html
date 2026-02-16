@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kayit Ol - Beyblade Arena</title>
+    <link rel="stylesheet" href="css/auth.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body class="auth-body">
+    <main class="auth-shell">
+        <section class="auth-card">
+            <p class="eyebrow">Hesap</p>
+            <h1>Kayit Ol</h1>
+            <p class="auth-copy">Yeni hesap olusturup dashboard a gec.</p>
+
+            <form id="registerForm" class="auth-form">
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email" autocomplete="email" required>
+
+                <label for="password">Sifre</label>
+                <input id="password" name="password" type="password" autocomplete="new-password" minlength="6" required>
+
+                <button id="registerBtn" class="btn btn-primary" type="submit">Kayit Ol</button>
+                <p id="registerError" class="auth-error" style="display:none;"></p>
+            </form>
+
+            <p class="auth-footnote">
+                Zaten hesabin var mi?
+                <a href="/login.html">Giris yap</a>
+            </p>
+        </section>
+    </main>
+
+    <script src="js/firebase-config.js"></script>
+    <script type="module" src="js/register.js"></script>
+</body>
+
+</html>

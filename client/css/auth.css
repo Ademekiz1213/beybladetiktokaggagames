@@ -139,6 +139,12 @@ h1 {
     cursor: not-allowed;
 }
 
+.btn.btn-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: auto;
+}
+
 .btn-primary {
     background: linear-gradient(135deg, var(--brand), var(--brand-2));
     color: #031018;

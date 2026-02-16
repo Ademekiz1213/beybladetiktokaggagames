@@ -50,6 +50,23 @@ function setMessage(message, type = 'info') {
     messageEl.classList.add(`is-${type}`);
 }
 
+function updateGameAccess(payload) {
+    const gameBtn = document.getElementById('enterGameBtn');
+    if (!gameBtn) return;
+
+    const isPremium = Boolean(payload?.premium);
+    if (isPremium) {
+        gameBtn.classList.remove('btn-disabled');
+        gameBtn.removeAttribute('aria-disabled');
+        gameBtn.textContent = 'Oyuna Gir';
+        return;
+    }
+
+    gameBtn.classList.add('btn-disabled');
+    gameBtn.setAttribute('aria-disabled', 'true');
+    gameBtn.textContent = 'Oyuna Gir (Premium)';
+}
+
 function renderPremiumState(payload) {
     const premiumBadge = document.getElementById('premiumStateBadge');
     const premiumUntil = document.getElementById('premiumUntil');
@@ -74,6 +91,8 @@ function renderPremiumState(payload) {
     if (adminPanelLink) {
         adminPanelLink.style.display = payload?.isAdmin ? 'inline-flex' : 'none';
     }
+
+    updateGameAccess(payload);
 }
 
 async function fetchPremiumState(user) {
@@ -106,6 +125,22 @@ async function initDashboard() {
     const redeemForm = document.getElementById('redeemForm');
     const redeemBtn = document.getElementById('redeemBtn');
     const activationCodeInput = document.getElementById('activationCodeInput');
+    const gameBtn = document.getElementById('enterGameBtn');
+
+    let premiumState = {
+        premium: false,
+        premiumUntil: null,
+        daysRemaining: 0,
+        isAdmin: false
+    };
+
+    const query = new URLSearchParams(window.location.search);
+    const premiumReason = query.get('premium');
+    if (premiumReason === 'required') {
+        setMessage('Premium yok. Oyuna girmek icin once premium aktif etmelisin.', 'error');
+    } else if (premiumReason === 'verify_failed') {
+        setMessage('Premium kontrolu yapilamadi. Tekrar dene.', 'error');
+    }
 
     const logoutBtn = document.getElementById('logoutBtn');
     logoutBtn?.addEventListener('click', async () => {
@@ -123,6 +158,7 @@ async function initDashboard() {
 
     async function refreshPremium() {
         const payload = await fetchPremiumState(user);
+        premiumState = payload;
         renderPremiumState(payload);
     }
 
@@ -167,6 +203,7 @@ async function initDashboard() {
                 throw new Error(payload.error || `Request failed (${response.status})`);
             }
 
+            premiumState = payload;
             renderPremiumState(payload);
             setMessage('Kod aktif edildi. Premium suresi guncellendi.', 'success');
 
@@ -186,9 +223,17 @@ async function initDashboard() {
     try {
         await refreshPremium();
     } catch (error) {
-        renderPremiumState({ premium: false, premiumUntil: null, daysRemaining: 0, isAdmin: false });
+        premiumState = { premium: false, premiumUntil: null, daysRemaining: 0, isAdmin: false };
+        renderPremiumState(premiumState);
         setMessage(error.message || 'Premium durumu alinamadi.', 'error');
     }
+
+    gameBtn?.addEventListener('click', (event) => {
+        if (premiumState.premium) return;
+
+        event.preventDefault();
+        setMessage('Premium yok. Oyuna girmek icin once kod aktivasyonu yap.', 'error');
+    });
 }
 
 initDashboard().catch((error) => {

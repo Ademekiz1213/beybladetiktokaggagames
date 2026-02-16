@@ -12,6 +12,7 @@ const io = new Server(server, {
 });
 
 const MAX_STREAMERS_PER_TAB = 20;
+const MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER = 10;
 
 // Serve client files
 app.use(express.json({ limit: '128kb' }));
@@ -97,6 +98,7 @@ io.on('connection', (socket) => {
 
     // Each tab/socket gets isolated streamer handlers.
     const sessionHandlers = new Map(); // streamerKey -> TikTokHandler
+    const failedConnectAttempts = new Map(); // streamerKey -> { count, blocked, lastError }
 
     function connectStreamerForSocket(username) {
         const normalized = normalizeUsername(username);
@@ -110,15 +112,44 @@ io.on('connection', (socket) => {
 
         const handler = new TikTokHandler(normalized, {
             onStatus: (status) => {
+                const statusPayload = { ...status };
+
+                if (statusPayload.connected) {
+                    failedConnectAttempts.delete(streamerKey);
+                }
+
                 // Auto-remove dead handler so same streamer can reconnect in this tab.
                 if (!status.connecting && !status.connected) {
                     const current = sessionHandlers.get(streamerKey);
                     if (current === handler) {
                         sessionHandlers.delete(streamerKey);
                     }
+
+                    const shouldCountFailure = !handler.hasEverConnected && !status.disconnectedByUser;
+                    if (shouldCountFailure) {
+                        const previous = failedConnectAttempts.get(streamerKey) || {
+                            count: 0,
+                            blocked: false,
+                            lastError: null
+                        };
+                        const count = previous.count + 1;
+                        const blocked = count >= MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER;
+
+                        failedConnectAttempts.set(streamerKey, {
+                            count,
+                            blocked,
+                            lastError: status.error || previous.lastError || null
+                        });
+
+                        statusPayload.failedAttempts = count;
+                        statusPayload.connectBlocked = blocked;
+                        if (blocked) {
+                            statusPayload.error = `${handler.username} icin ${MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER} basarisiz deneme oldu. Bu sekmede tekrar denenmeyecek.`;
+                        }
+                    }
                 }
 
-                emitSocketStatus(socket, sessionHandlers, status);
+                emitSocketStatus(socket, sessionHandlers, statusPayload);
             },
             onEvent: (eventName, eventData) => {
                 // Important: emit only to this tab.
@@ -166,6 +197,7 @@ io.on('connection', (socket) => {
         for (const username of usernames) {
             const key = username.toLowerCase();
             const existing = sessionHandlers.get(key);
+            const failedState = failedConnectAttempts.get(key);
 
             if (existing) {
                 emitSocketStatus(socket, sessionHandlers, {
@@ -173,6 +205,17 @@ io.on('connection', (socket) => {
                     connected: existing.isConnected,
                     connecting: !existing.isConnected,
                     alreadyTracked: true
+                });
+                continue;
+            }
+
+            if (failedState?.blocked) {
+                emitSocketStatus(socket, sessionHandlers, {
+                    connected: getConnectedUsernames(sessionHandlers).length > 0,
+                    username,
+                    connectBlocked: true,
+                    failedAttempts: failedState.count,
+                    error: `${username} icin 10 deneme limiti doldu. Bu sekmede tekrar denenmeyecek.`
                 });
                 continue;
             }
@@ -227,6 +270,7 @@ io.on('connection', (socket) => {
             handler.disconnect({ silent: true });
         }
         sessionHandlers.clear();
+        failedConnectAttempts.clear();
 
         console.log(`[Socket] Client disconnected: ${socket.id}`);
     });

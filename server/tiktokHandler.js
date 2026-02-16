@@ -9,6 +9,7 @@ class TikTokHandler {
 
         this.connection = null;
         this.isConnected = false;
+        this.hasEverConnected = false;
         this.likeCounters = {}; // viewerId -> accumulated likes
     }
 
@@ -64,6 +65,7 @@ class TikTokHandler {
         try {
             const state = await this.connection.connect();
             this.isConnected = true;
+            this.hasEverConnected = true;
             console.log(`[TikTok] Connected to ${this.username} | Room ID: ${state.roomId}`);
 
             this._emitStatus({

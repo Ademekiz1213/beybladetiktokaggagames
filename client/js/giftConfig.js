@@ -8,6 +8,7 @@ class GiftConfig {
         this.defaultAttack = 10;
         this.defaultSize = 1;
         this.profilePicScale = 0.6;
+        this.showProfilePicture = true;
         this.defaultShieldDuration = 5;
         this.selectedSkin = 'classic';
         this.arenaTheme = 'cyber';
@@ -97,6 +98,7 @@ class GiftConfig {
             defaultAttack: this.defaultAttack,
             defaultSize: this.defaultSize,
             profilePicScale: this.profilePicScale,
+            showProfilePicture: this.showProfilePicture,
             defaultShieldDuration: this.defaultShieldDuration,
             selectedSkin: this.selectedSkin,
             arenaTheme: this.arenaTheme,
@@ -112,6 +114,7 @@ class GiftConfig {
         if (data.defaultAttack !== undefined) this.defaultAttack = data.defaultAttack;
         if (data.defaultSize !== undefined) this.defaultSize = data.defaultSize;
         if (data.profilePicScale !== undefined) this.profilePicScale = data.profilePicScale;
+        if (data.showProfilePicture !== undefined) this.showProfilePicture = Boolean(data.showProfilePicture);
         if (data.defaultShieldDuration !== undefined) this.defaultShieldDuration = data.defaultShieldDuration;
         if (data.selectedSkin !== undefined) this.selectedSkin = data.selectedSkin;
         if (data.arenaTheme !== undefined) this.arenaTheme = data.arenaTheme;

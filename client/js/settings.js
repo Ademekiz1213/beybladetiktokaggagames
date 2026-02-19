@@ -32,6 +32,7 @@ class SettingsPanel {
                     <button class="tab-btn active" data-tab="general">🎮 Genel</button>
                     <button class="tab-btn" data-tab="skins">🎨 Görünüm</button>
                     <button class="tab-btn" data-tab="gifts">🎁 Hediyeler</button>
+                    <button class="tab-btn" data-tab="windows">🪟 Pencereler</button>
                 </div>
                 <div class="settings-body">
                     <!-- TAB: GENERAL -->
@@ -88,6 +89,16 @@ class SettingsPanel {
                                     <span class="setting-hint">0.2 (küçük) → 0.9 (büyük)</span>
                                 </div>
                                 <input type="number" id="settingProfilePicScale" min="0.2" max="0.9" step="0.05" value="${this.giftConfig.profilePicScale}">
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-label">
+                                    <label>🖼️ Profil Resmini Goster</label>
+                                    <span class="setting-hint">Beyblade ustundeki profil resmini ac/kapat</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settingShowProfilePic" ${this.giftConfig.showProfilePicture !== false ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
                             </div>
                             <div class="setting-row">
                                 <div class="setting-label">
@@ -176,12 +187,20 @@ class SettingsPanel {
                             <button id="addGiftBtn" class="btn-add-gift">+ Hediye Ekle</button>
                         </div>
                     </div>
+
+                    <!-- TAB: WINDOWS -->
+                    <div class="tab-content" data-tab="windows">
+                        <div class="settings-section">
+                            <h3>🪟 Ayrı Pencere Araçları</h3>
+                            <p class="skin-desc">Canli panelleri ayri pencere olarak acabilirsiniz.</p>
+                            <button id="openPlayersPopupBtn" class="btn-open-popup">⚔️ Aktif Oyuncular — Ayrı Pencere Aç</button>
+                            <button id="openPopupBtn" class="btn-open-popup">🏆 Arena Fatihleri — Ayrı Pencere Aç</button>
+                            <button id="resetScoresBtn" class="btn-reset-scores">🗑️ Arena Fatihleri Sıfırla</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="settings-footer">
                     <a id="backToDashboardBtn" href="/dashboard.html" class="btn-back-dashboard">↩ Dashboard'a Don</a>
-                    <button id="openPlayersPopupBtn" class="btn-open-popup">⚔️ Aktif Oyuncular — Ayrı Pencere Aç</button>
-                    <button id="openPopupBtn" class="btn-open-popup">🏆 Arena Fatihleri — Ayrı Pencere Aç</button>
-                    <button id="resetScoresBtn" class="btn-reset-scores">🗑️ Arena Fatihleri Sıfırla</button>
                     <button id="saveSettingsBtn" class="btn-save-settings">💾 Kaydet</button>
                 </div>
             </div>
@@ -473,6 +492,7 @@ class SettingsPanel {
         this.giftConfig.defaultAttack = parseInt(this.overlay.querySelector('#settingDefaultAttack').value) || 10;
         this.giftConfig.defaultSize = parseInt(this.overlay.querySelector('#settingDefaultSize').value) || 1;
         this.giftConfig.profilePicScale = parseFloat(this.overlay.querySelector('#settingProfilePicScale').value) || 0.6;
+        this.giftConfig.showProfilePicture = this.overlay.querySelector('#settingShowProfilePic')?.checked !== false;
         this.giftConfig.defaultShieldDuration = parseInt(this.overlay.querySelector('#settingShieldDuration').value) || 5;
         this.giftConfig.likesPerSpawn = parseInt(this.overlay.querySelector('#settingLikesPerSpawn').value) || 50;
         this.giftConfig.likeHealAmount = parseInt(this.overlay.querySelector('#settingLikeHeal').value) || 10;

@@ -216,34 +216,37 @@ class Beyblade {
         // Draw skin body
         this._drawSkin(ctx, r);
 
-        // Profile picture (doesn't rotate)
-        const picScale = (window.game && window.game.giftConfig) ? window.game.giftConfig.profilePicScale : 0.6;
-        const picRadius = r * Math.max(0.2, Math.min(0.9, picScale));
-        ctx.beginPath();
-        ctx.arc(0, 0, picRadius, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.save();
-        ctx.clip();
+        // Profile picture (optional, doesn't rotate)
+        const showProfilePicture = !window.game || !window.game.giftConfig || window.game.giftConfig.showProfilePicture !== false;
+        if (showProfilePicture) {
+            const picScale = (window.game && window.game.giftConfig) ? window.game.giftConfig.profilePicScale : 0.6;
+            const picRadius = r * Math.max(0.2, Math.min(0.9, picScale));
+            ctx.beginPath();
+            ctx.arc(0, 0, picRadius, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.save();
+            ctx.clip();
 
-        if (this.profileLoaded && this.profileImage) {
-            ctx.drawImage(this.profileImage, -picRadius, -picRadius, picRadius * 2, picRadius * 2);
-        } else {
-            ctx.fillStyle = this.color;
-            ctx.fillRect(-picRadius, -picRadius, picRadius * 2, picRadius * 2);
-            ctx.fillStyle = 'white';
-            ctx.font = `bold ${picRadius * 0.9}px Inter`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(this.nickname.charAt(0).toUpperCase(), 0, 0);
+            if (this.profileLoaded && this.profileImage) {
+                ctx.drawImage(this.profileImage, -picRadius, -picRadius, picRadius * 2, picRadius * 2);
+            } else {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-picRadius, -picRadius, picRadius * 2, picRadius * 2);
+                ctx.fillStyle = 'white';
+                ctx.font = `bold ${picRadius * 0.9}px Inter`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.nickname.charAt(0).toUpperCase(), 0, 0);
+            }
+            ctx.restore();
+
+            // Profile picture border
+            ctx.beginPath();
+            ctx.arc(0, 0, picRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(200, 220, 255, 0.5)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
         }
-        ctx.restore();
-
-        // Profile picture border
-        ctx.beginPath();
-        ctx.arc(0, 0, picRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(200, 220, 255, 0.5)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
 
         // Nickname
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';

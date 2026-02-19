@@ -118,71 +118,82 @@ class Game {
         });
     }
 
+    _resolveGiftRepeatCount(data) {
+        const rawRepeatCount = Number(data?.repeatCount);
+        if (!Number.isFinite(rawRepeatCount)) return 1;
+        return Math.max(1, Math.floor(rawRepeatCount));
+    }
+
     _handleGift(data) {
         const giftEffects = this.giftConfig.getGiftEffects(data.giftName);
-        const existingBlade = this._findBeyblade(data.uniqueId);
+        const repeatCount = this._resolveGiftRepeatCount(data);
+        let activeBlade = this._findBeyblade(data.uniqueId);
 
         for (const effect of giftEffects.effects) {
+            const baseAmount = Math.max(1, Number(effect?.amount) || 1);
+            const totalAmount = baseAmount * repeatCount;
+
             switch (effect.type) {
                 case 'spawn':
-                    if (existingBlade && existingBlade.alive) {
-                        // Already in arena → size boost instead
-                        existingBlade.addSize(effect.amount);
-                        this.effects.spawnUpgradeEffect(existingBlade.x, existingBlade.y, `📏 +${effect.amount}`, '#00d4ff');
+                    if (activeBlade && activeBlade.alive) {
+                        // Already in arena -> convert spawn gifts to size boost.
+                        activeBlade.addSize(totalAmount);
+                        this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `SIZE +${totalAmount}`, '#00d4ff');
                     } else {
-                        // Spawn new beyblade
-                        this._spawnBeyblade(data);
+                        // Spawn once, then apply remaining combo gifts as size.
+                        activeBlade = this._spawnBeyblade(data);
+                        if (activeBlade && totalAmount > 1) {
+                            const bonusSize = totalAmount - 1;
+                            activeBlade.addSize(bonusSize);
+                            this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `SIZE +${bonusSize}`, '#00d4ff');
+                        }
                     }
                     break;
 
                 case 'size':
-                    if (existingBlade && existingBlade.alive) {
-                        existingBlade.addSize(effect.amount);
-                        this.effects.spawnUpgradeEffect(existingBlade.x, existingBlade.y, `📏 +${effect.amount}`, '#00d4ff');
-                    } else {
-                        // Spawn first, then apply
-                        const newBlade = this._spawnBeyblade(data);
-                        if (newBlade) newBlade.addSize(effect.amount);
+                    if (!activeBlade || !activeBlade.alive) {
+                        activeBlade = this._spawnBeyblade(data);
+                    }
+                    if (activeBlade && activeBlade.alive) {
+                        activeBlade.addSize(totalAmount);
+                        this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `SIZE +${totalAmount}`, '#00d4ff');
                     }
                     break;
 
                 case 'hp':
-                    if (existingBlade && existingBlade.alive) {
-                        existingBlade.addHp(effect.amount);
-                        this.effects.spawnUpgradeEffect(existingBlade.x, existingBlade.y, `❤️ +${effect.amount}`, '#22d67a');
-                    } else {
-                        const newBlade = this._spawnBeyblade(data);
-                        if (newBlade) newBlade.addHp(effect.amount);
+                    if (!activeBlade || !activeBlade.alive) {
+                        activeBlade = this._spawnBeyblade(data);
+                    }
+                    if (activeBlade && activeBlade.alive) {
+                        activeBlade.addHp(totalAmount);
+                        this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `HP +${totalAmount}`, '#22d67a');
                     }
                     break;
 
                 case 'attack':
-                    if (existingBlade && existingBlade.alive) {
-                        existingBlade.addAttack(effect.amount);
-                        this.effects.spawnUpgradeEffect(existingBlade.x, existingBlade.y, `💪 +${effect.amount}`, '#f43f8e');
-                    } else {
-                        const newBlade = this._spawnBeyblade(data);
-                        if (newBlade) newBlade.addAttack(effect.amount);
+                    if (!activeBlade || !activeBlade.alive) {
+                        activeBlade = this._spawnBeyblade(data);
+                    }
+                    if (activeBlade && activeBlade.alive) {
+                        activeBlade.addAttack(totalAmount);
+                        this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `ATK +${totalAmount}`, '#f43f8e');
                     }
                     break;
 
                 case 'shield':
-                    if (existingBlade && existingBlade.alive) {
-                        const shieldDur = this.giftConfig.defaultShieldDuration || effect.amount;
-                        existingBlade.activateShield(shieldDur);
-                        this.effects.spawnUpgradeEffect(existingBlade.x, existingBlade.y, `🛡️ ${shieldDur}s`, '#a855f7');
-                    } else {
-                        const newBlade = this._spawnBeyblade(data);
-                        if (newBlade) {
-                            const shieldDur = this.giftConfig.defaultShieldDuration || effect.amount;
-                            newBlade.activateShield(shieldDur);
-                        }
+                    if (!activeBlade || !activeBlade.alive) {
+                        activeBlade = this._spawnBeyblade(data);
+                    }
+                    if (activeBlade && activeBlade.alive) {
+                        const shieldDurPerGift = this.giftConfig.defaultShieldDuration || baseAmount;
+                        const totalShieldDur = shieldDurPerGift * repeatCount;
+                        activeBlade.activateShield(totalShieldDur);
+                        this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `SHIELD ${totalShieldDur}s`, '#a855f7');
                     }
                     break;
             }
         }
 
-        // Refresh existing reference after spawn
         this._updateGameState();
     }
 
@@ -830,3 +841,4 @@ class Game {
 }
 
 window.Game = Game;
+

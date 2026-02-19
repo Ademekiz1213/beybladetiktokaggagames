@@ -54,6 +54,11 @@ class SocketManager {
             console.log('[Socket] Share:', data);
             this._trigger('tiktok-share', data);
         });
+
+        this.socket.on('admin-announcement', (data) => {
+            console.log('[Socket] Admin announcement:', data);
+            this._trigger('admin-announcement', data);
+        });
     }
 
     connectTikTok(username) {

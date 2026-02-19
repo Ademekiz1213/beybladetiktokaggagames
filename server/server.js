@@ -75,6 +75,45 @@ app.get('/api/admin/live-streamers', async (req, res) => {
     }
 });
 
+app.post('/api/admin/announce', async (req, res) => {
+    try {
+        const user = await resolveRequestUser(req);
+        if (!user) {
+            return res.status(401).json({ ok: false, error: 'Unauthorized' });
+        }
+
+        if (!isAdminEmail(user.email)) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+
+        const message = String(req.body?.message || '').trim();
+        if (!message) {
+            return res.status(400).json({ ok: false, error: 'Announcement message is required' });
+        }
+
+        if (message.length > 300) {
+            return res.status(400).json({ ok: false, error: 'Announcement message is too long (max 300 chars)' });
+        }
+
+        const announcement = {
+            message,
+            sentBy: user.email,
+            createdAt: new Date().toISOString()
+        };
+
+        io.emit('admin-announcement', announcement);
+
+        return res.json({
+            ok: true,
+            deliveredToSockets: Number(io.engine?.clientsCount || 0),
+            announcement
+        });
+    } catch (error) {
+        console.error('[Admin] /announce failed:', error);
+        return res.status(500).json({ ok: false, error: 'Internal error' });
+    }
+});
+
 function normalizeUsername(username) {
     return TikTokHandler.normalizeUsername(username);
 }

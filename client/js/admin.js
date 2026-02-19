@@ -207,8 +207,10 @@ function setAdminReadonlyState(readonly) {
         '#saveCodeBtn',
         '#grantBtn',
         '#revokeBtn',
+        '#sendAnnouncementBtn',
         '#codeForm input',
-        '#grantForm input'
+        '#grantForm input',
+        '#announceForm textarea'
     ].join(', ');
 
     document.querySelectorAll(selector).forEach((element) => {
@@ -446,6 +448,51 @@ async function initAdminPage() {
             if (revokeBtn) {
                 revokeBtn.disabled = false;
                 revokeBtn.textContent = 'Premium Iptal Et';
+            }
+        }
+    });
+
+    document.getElementById('announceForm')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setMessage('');
+
+        const announceInput = document.getElementById('announceMessage');
+        const message = String(announceInput?.value || '').trim();
+        if (!message) {
+            setMessage('Duyuru mesaji bos olamaz.', 'error');
+            return;
+        }
+
+        if (message.length > 300) {
+            setMessage('Duyuru mesaji en fazla 300 karakter olabilir.', 'error');
+            return;
+        }
+
+        const sendBtn = document.getElementById('sendAnnouncementBtn');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Gonderiliyor...';
+        }
+
+        try {
+            const payload = await fetchApi('/api/admin/announce', {
+                method: 'POST',
+                user,
+                body: { message }
+            });
+
+            if (announceInput) {
+                announceInput.value = '';
+            }
+
+            const delivered = Number(payload?.deliveredToSockets || 0);
+            setMessage(`Duyuru gonderildi. Ulasilan aktif baglanti: ${delivered}.`, 'success');
+        } catch (error) {
+            setMessage(error.message || 'Duyuru gonderilemedi.', 'error');
+        } finally {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Duyuruyu Gonder';
             }
         }
     });

@@ -24,6 +24,7 @@ class UIManager {
         this._createPlayerPanel();
         this._createScoreboard();
         this._createFeedToggle();
+        this._createAnnouncementBanner();
         this._bindEvents();
         this._setDisconnectedState();
     }
@@ -86,6 +87,17 @@ class UIManager {
         });
     }
 
+    _createAnnouncementBanner() {
+        this.announcementBanner = document.createElement('div');
+        this.announcementBanner.className = 'admin-announcement-banner';
+        this.announcementBanner.innerHTML = `
+            <div class="announcement-title">DUYURU</div>
+            <div class="announcement-text"></div>
+        `;
+        document.body.appendChild(this.announcementBanner);
+        this.announcementHideTimer = null;
+    }
+
     _bindEvents() {
         // Connect button
         this.connectBtn?.addEventListener('click', () => this._onConnect());
@@ -108,6 +120,7 @@ class UIManager {
         window.socketManager.on('tiktok-gift', (data) => this._addGiftFeed(data));
         window.socketManager.on('tiktok-like', (data) => this._addLikeFeed(data));
         window.socketManager.on('tiktok-follow', (data) => this._addFollowFeed(data));
+        window.socketManager.on('admin-announcement', (data) => this._handleAdminAnnouncement(data));
     }
 
     _onConnect() {
@@ -291,6 +304,48 @@ class UIManager {
             data.nickname,
             `${this._streamerBadge(data)} <span class="follow-action">âœ… Takip etti!</span>`
         );
+    }
+
+    _handleAdminAnnouncement(data) {
+        const message = String(data?.message || '').trim();
+        if (!message) return;
+
+        const sentBy = String(data?.sentBy || 'admin').trim();
+        const createdAt = data?.createdAt ? new Date(data.createdAt) : null;
+        const timeLabel = createdAt && Number.isFinite(createdAt.getTime())
+            ? createdAt.toLocaleTimeString()
+            : '';
+
+        this._showAnnouncementBanner(message, sentBy, timeLabel);
+        this._addFeedItem(
+            '',
+            'Yonetici Duyurusu',
+            `<span class="follow-action">📢 ${this._escapeHtml(message)}</span>`
+        );
+    }
+
+    _showAnnouncementBanner(message, sentBy, timeLabel) {
+        if (!this.announcementBanner) return;
+
+        const titleEl = this.announcementBanner.querySelector('.announcement-title');
+        const textEl = this.announcementBanner.querySelector('.announcement-text');
+        if (!titleEl || !textEl) return;
+
+        const metaParts = ['DUYURU'];
+        if (sentBy) metaParts.push(sentBy);
+        if (timeLabel) metaParts.push(timeLabel);
+
+        titleEl.textContent = metaParts.join(' • ');
+        textEl.textContent = message;
+        this.announcementBanner.classList.add('show');
+
+        if (this.announcementHideTimer) {
+            window.clearTimeout(this.announcementHideTimer);
+        }
+
+        this.announcementHideTimer = window.setTimeout(() => {
+            this.announcementBanner.classList.remove('show');
+        }, 9000);
     }
 
     updatePlayerCount(count) {

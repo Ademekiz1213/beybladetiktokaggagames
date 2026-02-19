@@ -451,6 +451,45 @@ body {
     font-weight: 600;
 }
 
+.admin-announcement-banner {
+    position: fixed;
+    top: 74px;
+    left: 50%;
+    transform: translate(-50%, -18px);
+    width: min(760px, calc(100vw - 20px));
+    z-index: 95;
+    border-radius: 12px;
+    border: 1px solid rgba(250, 204, 21, 0.45);
+    background: rgba(18, 18, 34, 0.95);
+    box-shadow: 0 16px 28px rgba(0, 0, 0, 0.35);
+    padding: 10px 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.admin-announcement-banner.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.announcement-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(250, 204, 21, 0.95);
+    margin-bottom: 4px;
+}
+
+.announcement-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff8d9;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
 .btn-disconnect {
     width: 28px;
     height: 28px;
@@ -1860,5 +1899,11 @@ body {
     .btn-feed-toggle {
         top: 8px;
         right: 60px;
+    }
+
+    .admin-announcement-banner {
+        top: 62px;
+        width: calc(100vw - 12px);
+        padding: 9px 10px;
     }
 }

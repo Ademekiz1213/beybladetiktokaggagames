@@ -97,6 +97,21 @@
                     <div id="accountsList" class="admin-list"></div>
                 </section>
 
+                <section class="admin-panel">
+                    <div class="admin-panel-head">
+                        <h2>Genel Duyuru</h2>
+                    </div>
+
+                    <form id="announceForm" class="admin-form">
+                        <label for="announceMessage">Bagli kullanicilara mesaj</label>
+                        <textarea id="announceMessage" name="message" class="admin-textarea" maxlength="300" placeholder="Ornek: 5 dakika sonra sunucu yeniden baslatilacak."></textarea>
+                        <div class="admin-announcement-meta">
+                            <span>Maksimum 300 karakter</span>
+                        </div>
+                        <button id="sendAnnouncementBtn" class="btn btn-primary" type="submit">Duyuruyu Gonder</button>
+                    </form>
+                </section>
+
                 <section class="admin-panel admin-panel-wide">
                     <div class="admin-panel-head">
                         <h2>Canli Bagli Yayincilar</h2>

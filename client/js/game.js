@@ -127,9 +127,11 @@ class Game {
 
     _queueGift(data) {
         if (!data) return;
+        const delayedByServer = data.delayAppliedOnServer === true;
+        const queueDelayMs = delayedByServer ? 0 : this._getGiftDetectionDelayMs();
 
         this.pendingGiftQueue.push({
-            processAt: Date.now() + this._getGiftDetectionDelayMs(),
+            processAt: Date.now() + queueDelayMs,
             data
         });
     }

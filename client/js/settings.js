@@ -598,6 +598,10 @@ class SettingsPanel {
         this.giftConfig.gifts = newGifts;
         this.giftConfig.save();
 
+        if (window.socketManager && typeof window.socketManager.setGiftDetectionDelay === 'function') {
+            window.socketManager.setGiftDetectionDelay(this.giftConfig.giftDetectionDelaySeconds);
+        }
+
         // Apply skin to existing beyblades
         if (window.game && window.game.beyblades) {
             window.game.beyblades.forEach(b => {

@@ -29,6 +29,11 @@ const MAX_FAILURE_COOLDOWN_MS = envInt('MAX_FAILURE_COOLDOWN_MS', 10 * 60_000);
 const MANUAL_RECONNECT_COOLDOWN_MS = envInt('MANUAL_RECONNECT_COOLDOWN_MS', 10_000);
 const DISCONNECT_RECONNECT_COOLDOWN_MS = envInt('DISCONNECT_RECONNECT_COOLDOWN_MS', 45_000);
 const MAX_GLOBAL_ACTIVE_STREAMERS = envInt('MAX_GLOBAL_ACTIVE_STREAMERS', 40);
+const MIN_GIFT_DELAY_SECONDS = envInt('MIN_GIFT_DELAY_SECONDS', 10);
+const DEFAULT_GIFT_DELAY_SECONDS = Math.max(
+    MIN_GIFT_DELAY_SECONDS,
+    envInt('DEFAULT_GIFT_DELAY_SECONDS', MIN_GIFT_DELAY_SECONDS)
+);
 const ENABLE_TIKTOK_CHAT_EVENTS = String(process.env.ENABLE_TIKTOK_CHAT_EVENTS || '').toLowerCase() === 'true';
 const ENABLE_TIKTOK_SHARE_EVENTS = String(process.env.ENABLE_TIKTOK_SHARE_EVENTS || '').toLowerCase() === 'true';
 
@@ -222,6 +227,12 @@ function formatRetryAfterMs(ms) {
     return `${minutes}dk ${seconds}s`;
 }
 
+function normalizeGiftDelaySeconds(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return DEFAULT_GIFT_DELAY_SECONDS;
+    return Math.max(MIN_GIFT_DELAY_SECONDS, Math.floor(parsed));
+}
+
 function updateLiveSocketState(socket, handlers, payload = {}) {
     const socketId = socket?.id;
     if (!socketId) return;
@@ -276,6 +287,8 @@ io.on('connection', (socket) => {
     const streamerCooldowns = new Map(); // streamerKey -> { until, reason }
     const pendingConnectTimers = new Map(); // streamerKey -> timeout
     const pendingConnects = new Set(); // streamerKey
+    const pendingGiftEmitTimers = new Map(); // timeout -> streamerKey
+    let giftDelaySeconds = DEFAULT_GIFT_DELAY_SECONDS;
     let connectRequestTimestamps = []; // request timestamps for this socket
 
     liveSocketStates.set(socket.id, {
@@ -355,6 +368,45 @@ io.on('connection', (socket) => {
         pendingConnects.delete(streamerKey);
     }
 
+    function queueGiftEventForSocket(eventName, eventData = {}) {
+        const streamerKey = String(eventData?.streamerKey || '').toLowerCase();
+        const delayMs = Math.max(0, normalizeGiftDelaySeconds(giftDelaySeconds) * 1000);
+
+        if (delayMs <= 0) {
+            socket.emit(eventName, eventData);
+            return;
+        }
+
+        const delayedPayload = {
+            ...eventData,
+            delayAppliedOnServer: true,
+            serverGiftDelayMs: delayMs
+        };
+
+        const timer = setTimeout(() => {
+            pendingGiftEmitTimers.delete(timer);
+            if (!socket.connected) return;
+            socket.emit(eventName, delayedPayload);
+        }, delayMs);
+
+        pendingGiftEmitTimers.set(timer, streamerKey);
+    }
+
+    function clearPendingGiftEventsForStreamer(streamerKey) {
+        for (const [timer, queuedStreamerKey] of Array.from(pendingGiftEmitTimers.entries())) {
+            if (queuedStreamerKey !== streamerKey) continue;
+            clearTimeout(timer);
+            pendingGiftEmitTimers.delete(timer);
+        }
+    }
+
+    function clearAllPendingGiftEvents() {
+        for (const timer of Array.from(pendingGiftEmitTimers.keys())) {
+            clearTimeout(timer);
+            pendingGiftEmitTimers.delete(timer);
+        }
+    }
+
     function disconnectHandler(streamerKey, handler, options = {}) {
         if (!handler) return;
 
@@ -363,6 +415,7 @@ io.on('connection', (socket) => {
 
         handler._released = true;
         clearPendingConnect(streamerKey);
+        clearPendingGiftEventsForStreamer(streamerKey);
 
         if (handler._countedGlobally) {
             decrementGlobalStreamerCount(streamerKey);
@@ -468,6 +521,7 @@ io.on('connection', (socket) => {
 
                 // Auto-remove dead handler so same streamer can reconnect in this tab.
                 if (!status.connecting && !status.connected) {
+                    clearPendingGiftEventsForStreamer(streamerKey);
                     if (handler._countedGlobally) {
                         decrementGlobalStreamerCount(streamerKey);
                         handler._countedGlobally = false;
@@ -520,6 +574,10 @@ io.on('connection', (socket) => {
             },
             onEvent: (eventName, eventData) => {
                 // Important: emit only to this tab.
+                if (eventName === 'tiktok-gift') {
+                    queueGiftEventForSocket(eventName, eventData);
+                    return;
+                }
                 socket.emit(eventName, eventData);
             }
         });
@@ -632,6 +690,8 @@ io.on('connection', (socket) => {
     }
 
     function disconnectAllStreamersForSocket() {
+        clearAllPendingGiftEvents();
+
         for (const streamerKey of Array.from(pendingConnects.values())) {
             clearPendingConnect(streamerKey);
             setStreamerCooldown(streamerKey, MANUAL_RECONNECT_COOLDOWN_MS, 'manual_disconnect');
@@ -652,7 +712,19 @@ io.on('connection', (socket) => {
     // Send snapshot to newly connected tab.
     emitSocketStatus(socket, sessionHandlers, {
         connected: false,
-        snapshot: true
+        snapshot: true,
+        giftDetectionDelaySeconds: giftDelaySeconds
+    });
+
+    socket.on('set-gift-delay', (payload) => {
+        const nextDelay = normalizeGiftDelaySeconds(
+            payload?.giftDetectionDelaySeconds ?? payload?.seconds ?? payload
+        );
+        giftDelaySeconds = nextDelay;
+
+        emitSocketStatus(socket, sessionHandlers, {
+            giftDetectionDelaySeconds: giftDelaySeconds
+        });
     });
 
     socket.on('register-session-user', (payload) => {
@@ -735,6 +807,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         disconnectAllStreamersForSocket();
+        clearAllPendingGiftEvents();
         failedConnectAttempts.clear();
         streamerCooldowns.clear();
         connectRequestTimestamps = [];

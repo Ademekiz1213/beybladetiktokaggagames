@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
         window.uiManager = new window.UIManager();
     }
 
+    // Keep server-side gift delay in sync with local settings.
+    window.socketManager.setGiftDetectionDelay(window.game.giftConfig.giftDetectionDelaySeconds);
+
     // Connect to Socket.IO server after game/ui listeners are ready.
     window.socketManager.connect();
 

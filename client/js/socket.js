@@ -4,6 +4,7 @@ class SocketManager {
         this.socket = null;
         this.eventHandlers = {};
         this.sessionUserPayload = null;
+        this.giftDetectionDelaySeconds = 10;
 
         window.addEventListener('auth-ready', (event) => {
             const user = event?.detail?.user || null;
@@ -17,6 +18,7 @@ class SocketManager {
         this.socket.on('connect', () => {
             console.log('[Socket] Connected to server');
             this._emitSessionUserIfPossible();
+            this._emitGiftDelayIfPossible();
             this._trigger('socket-connected');
         });
 
@@ -87,6 +89,12 @@ class SocketManager {
         this.socket.emit('disconnect-tiktok', { usernames });
     }
 
+    setGiftDetectionDelay(seconds) {
+        const parsed = Number(seconds);
+        this.giftDetectionDelaySeconds = Math.max(10, Number.isFinite(parsed) ? Math.floor(parsed) : 10);
+        this._emitGiftDelayIfPossible();
+    }
+
     on(event, handler) {
         if (!this.eventHandlers[event]) {
             this.eventHandlers[event] = [];
@@ -111,6 +119,16 @@ class SocketManager {
         }
 
         this.socket.emit('register-session-user', this.sessionUserPayload);
+    }
+
+    _emitGiftDelayIfPossible() {
+        if (!this.socket || !this.socket.connected) {
+            return;
+        }
+
+        this.socket.emit('set-gift-delay', {
+            giftDetectionDelaySeconds: this.giftDetectionDelaySeconds
+        });
     }
 
     _trigger(event, data) {

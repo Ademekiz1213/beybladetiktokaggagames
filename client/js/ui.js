@@ -310,7 +310,7 @@ class UIManager {
         const message = String(data?.message || '').trim();
         if (!message) return;
 
-        const sentBy = String(data?.sentBy || 'admin').trim();
+        const sentBy = String(data?.sentByName || data?.sentBy || 'admin').trim();
         const createdAt = data?.createdAt ? new Date(data.createdAt) : null;
         const timeLabel = createdAt && Number.isFinite(createdAt.getTime())
             ? createdAt.toLocaleTimeString()

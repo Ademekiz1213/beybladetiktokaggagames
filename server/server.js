@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const TikTokHandler = require('./tiktokHandler');
-const { registerPremiumRoutes, resolveRequestUser, isAdminEmail } = require('./premiumService');
+const { registerPremiumRoutes, resolveRequestUser, isAdminEmail, resolveAdminSenderName } = require('./premiumService');
 
 const app = express();
 const server = http.createServer(app);
@@ -95,9 +95,11 @@ app.post('/api/admin/announce', async (req, res) => {
             return res.status(400).json({ ok: false, error: 'Announcement message is too long (max 300 chars)' });
         }
 
+        const sentByName = await resolveAdminSenderName(user.email);
         const announcement = {
             message,
-            sentBy: user.email,
+            sentByName: sentByName || user.email,
+            sentByEmail: user.email,
             createdAt: new Date().toISOString()
         };
 

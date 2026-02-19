@@ -10,6 +10,7 @@ const DEFAULT_DB = {
     updatedAt: null,
     users: {},
     codes: {},
+    adminProfiles: {},
     redemptions: []
 };
 
@@ -53,6 +54,18 @@ function parseAdminEmails() {
 function isAdminEmail(email) {
     const admins = parseAdminEmails();
     return admins.includes(normalizeEmail(email));
+}
+
+function normalizeDisplayName(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function resolveAdminDisplayNameFromDb(db, email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) return '';
+
+    const displayName = normalizeDisplayName(db?.adminProfiles?.[normalizedEmail]?.displayName);
+    return displayName || normalizedEmail;
 }
 
 function buildPremiumSnapshot(record) {
@@ -115,6 +128,7 @@ function sanitizeDb(db) {
         ...db,
         users: db?.users || {},
         codes: db?.codes || {},
+        adminProfiles: db?.adminProfiles || {},
         redemptions: Array.isArray(db?.redemptions) ? db.redemptions : []
     };
 }
@@ -332,6 +346,20 @@ async function resolveAdminUser(req, res) {
     return user;
 }
 
+async function resolveAdminSenderName(email) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+        return '';
+    }
+
+    try {
+        const db = await readDb();
+        return resolveAdminDisplayNameFromDb(db, normalizedEmail);
+    } catch {
+        return normalizedEmail;
+    }
+}
+
 async function registerPremiumRoutes(app) {
     app.get('/api/premium/me', async (req, res) => {
         try {
@@ -354,6 +382,67 @@ async function registerPremiumRoutes(app) {
             });
         } catch (error) {
             console.error('[Premium] /me failed:', error);
+            return res.status(500).json({ ok: false, error: 'Internal error' });
+        }
+    });
+
+    app.get('/api/admin/profile', async (req, res) => {
+        try {
+            const adminUser = await resolveAdminUser(req, res);
+            if (!adminUser) {
+                return;
+            }
+
+            const db = await readDb();
+            const displayName = resolveAdminDisplayNameFromDb(db, adminUser.email);
+
+            return res.json({
+                ok: true,
+                email: adminUser.email,
+                displayName
+            });
+        } catch (error) {
+            console.error('[Premium] /admin/profile get failed:', error);
+            return res.status(500).json({ ok: false, error: 'Internal error' });
+        }
+    });
+
+    app.post('/api/admin/profile', async (req, res) => {
+        try {
+            const adminUser = await resolveAdminUser(req, res);
+            if (!adminUser) {
+                return;
+            }
+
+            const displayName = normalizeDisplayName(req.body?.displayName);
+            if (!displayName) {
+                return res.status(400).json({ ok: false, error: 'Display name is required' });
+            }
+            if (displayName.length > 40) {
+                return res.status(400).json({ ok: false, error: 'Display name is too long (max 40 chars)' });
+            }
+
+            const db = await readDb();
+            const email = normalizeEmail(adminUser.email);
+
+            if (!db.adminProfiles || typeof db.adminProfiles !== 'object') {
+                db.adminProfiles = {};
+            }
+
+            db.adminProfiles[email] = {
+                displayName,
+                updatedAt: nowIso()
+            };
+
+            await writeDb(db);
+
+            return res.json({
+                ok: true,
+                email,
+                displayName
+            });
+        } catch (error) {
+            console.error('[Premium] /admin/profile post failed:', error);
             return res.status(500).json({ ok: false, error: 'Internal error' });
         }
     });
@@ -654,5 +743,6 @@ async function registerPremiumRoutes(app) {
 module.exports = {
     registerPremiumRoutes,
     resolveRequestUser,
-    isAdminEmail
+    isAdminEmail,
+    resolveAdminSenderName
 };

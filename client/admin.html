@@ -103,6 +103,12 @@
                     </div>
 
                     <form id="announceForm" class="admin-form">
+                        <label for="announceDisplayName">Duyuru Gonderen Isim</label>
+                        <div class="admin-actions">
+                            <input id="announceDisplayName" name="displayName" type="text" maxlength="40" placeholder="Ornek: Sistem Yoneticisi">
+                            <button id="saveAnnouncementNameBtn" class="btn btn-secondary" type="button">Ismi Kaydet</button>
+                        </div>
+
                         <label for="announceMessage">Bagli kullanicilara mesaj</label>
                         <textarea id="announceMessage" name="message" class="admin-textarea" maxlength="300" placeholder="Ornek: 5 dakika sonra sunucu yeniden baslatilacak."></textarea>
                         <div class="admin-announcement-meta">

@@ -208,8 +208,10 @@ function setAdminReadonlyState(readonly) {
         '#grantBtn',
         '#revokeBtn',
         '#sendAnnouncementBtn',
+        '#saveAnnouncementNameBtn',
         '#codeForm input',
         '#grantForm input',
+        '#announceDisplayName',
         '#announceForm textarea'
     ].join(', ');
 
@@ -292,6 +294,14 @@ async function initAdminPage() {
     async function refreshLiveConnections() {
         const payload = await fetchApi('/api/admin/live-streamers', { user });
         renderLiveConnections(payload);
+    }
+
+    async function refreshAdminProfile() {
+        const payload = await fetchApi('/api/admin/profile', { user });
+        const displayNameInput = document.getElementById('announceDisplayName');
+        if (displayNameInput) {
+            displayNameInput.value = payload.displayName || '';
+        }
     }
 
     document.getElementById('refreshCodesBtn')?.addEventListener('click', async () => {
@@ -452,6 +462,44 @@ async function initAdminPage() {
         }
     });
 
+    document.getElementById('saveAnnouncementNameBtn')?.addEventListener('click', async () => {
+        setMessage('');
+        const displayNameInput = document.getElementById('announceDisplayName');
+        const displayName = String(displayNameInput?.value || '').trim();
+
+        if (!displayName) {
+            setMessage('Duyuru ismi bos olamaz.', 'error');
+            return;
+        }
+
+        if (displayName.length > 40) {
+            setMessage('Duyuru ismi en fazla 40 karakter olabilir.', 'error');
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveAnnouncementNameBtn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Kaydediliyor...';
+        }
+
+        try {
+            await fetchApi('/api/admin/profile', {
+                method: 'POST',
+                user,
+                body: { displayName }
+            });
+            setMessage('Duyuru ismi kaydedildi.', 'success');
+        } catch (error) {
+            setMessage(error.message || 'Duyuru ismi kaydedilemedi.', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Ismi Kaydet';
+            }
+        }
+    });
+
     document.getElementById('announceForm')?.addEventListener('submit', async (event) => {
         event.preventDefault();
         setMessage('');
@@ -498,7 +546,7 @@ async function initAdminPage() {
     });
 
     try {
-        await Promise.all([refreshCodes(), refreshAccounts(), refreshLiveConnections()]);
+        await Promise.all([refreshCodes(), refreshAccounts(), refreshLiveConnections(), refreshAdminProfile()]);
 
         liveRefreshTimer = window.setInterval(() => {
             refreshLiveConnections().catch((error) => {

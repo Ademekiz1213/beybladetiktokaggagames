@@ -397,6 +397,14 @@ h1 {
     gap: 8px;
 }
 
+.admin-actions input {
+    flex: 1;
+}
+
+.admin-actions button {
+    white-space: nowrap;
+}
+
 .admin-list {
     margin-top: 12px;
     max-height: 300px;

@@ -6,6 +6,8 @@ class TikTokHandler {
         this.streamerKey = this.username.toLowerCase();
         this.onStatus = options.onStatus;
         this.onEvent = options.onEvent;
+        this.enableChatEvents = Boolean(options.enableChatEvents);
+        this.enableShareEvents = Boolean(options.enableShareEvents);
 
         this.connection = null;
         this.isConnected = false;
@@ -162,39 +164,42 @@ class TikTokHandler {
             this._emitEvent('tiktok-follow', followInfo);
         });
 
-        // Chat event
-        this.connection.on('chat', (data) => {
-            const ids = this._buildScopedIdentity(data);
+        // Optional: chat/share are disabled by default to reduce unnecessary event traffic.
+        if (this.enableChatEvents) {
+            this.connection.on('chat', (data) => {
+                const ids = this._buildScopedIdentity(data);
 
-            const chatInfo = {
-                userId: ids.userId,
-                uniqueId: ids.uniqueId,
-                viewerUserId: ids.rawUserId,
-                viewerUniqueId: ids.rawUniqueId,
-                nickname: data.nickname,
-                profilePictureUrl: data.profilePictureUrl,
-                comment: data.comment
-            };
+                const chatInfo = {
+                    userId: ids.userId,
+                    uniqueId: ids.uniqueId,
+                    viewerUserId: ids.rawUserId,
+                    viewerUniqueId: ids.rawUniqueId,
+                    nickname: data.nickname,
+                    profilePictureUrl: data.profilePictureUrl,
+                    comment: data.comment
+                };
 
-            this._emitEvent('tiktok-chat', chatInfo);
-        });
+                this._emitEvent('tiktok-chat', chatInfo);
+            });
+        }
 
-        // Share event
-        this.connection.on('share', (data) => {
-            const ids = this._buildScopedIdentity(data);
+        if (this.enableShareEvents) {
+            this.connection.on('share', (data) => {
+                const ids = this._buildScopedIdentity(data);
 
-            const shareInfo = {
-                userId: ids.userId,
-                uniqueId: ids.uniqueId,
-                viewerUserId: ids.rawUserId,
-                viewerUniqueId: ids.rawUniqueId,
-                nickname: data.nickname,
-                profilePictureUrl: data.profilePictureUrl
-            };
+                const shareInfo = {
+                    userId: ids.userId,
+                    uniqueId: ids.uniqueId,
+                    viewerUserId: ids.rawUserId,
+                    viewerUniqueId: ids.rawUniqueId,
+                    nickname: data.nickname,
+                    profilePictureUrl: data.profilePictureUrl
+                };
 
-            console.log(`[TikTok] Share: ${shareInfo.nickname} [${this.username}]`);
-            this._emitEvent('tiktok-share', shareInfo);
-        });
+                console.log(`[TikTok] Share: ${shareInfo.nickname} [${this.username}]`);
+                this._emitEvent('tiktok-share', shareInfo);
+            });
+        }
 
         // Stream end
         this.connection.on('streamEnd', () => {

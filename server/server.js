@@ -11,9 +11,29 @@ const io = new Server(server, {
     cors: { origin: '*' }
 });
 
-const MAX_STREAMERS_PER_TAB = 20;
-const MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER = 10;
+function envInt(name, fallback) {
+    const raw = Number(process.env[name]);
+    if (!Number.isFinite(raw) || raw < 0) return fallback;
+    return Math.floor(raw);
+}
+
+const MAX_STREAMERS_PER_TAB = envInt('MAX_STREAMERS_PER_TAB', 20);
+const MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER = envInt('MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER', 10);
+const MAX_USERNAMES_PER_CONNECT_REQUEST = envInt('MAX_USERNAMES_PER_CONNECT_REQUEST', 8);
+const CONNECT_REQUEST_WINDOW_MS = envInt('CONNECT_REQUEST_WINDOW_MS', 60_000);
+const MAX_CONNECT_REQUESTS_PER_WINDOW = envInt('MAX_CONNECT_REQUESTS_PER_WINDOW', 12);
+const CONNECT_SPACING_MS = envInt('CONNECT_SPACING_MS', 2_000);
+const CONNECT_JITTER_MS = envInt('CONNECT_JITTER_MS', 1_200);
+const BASE_FAILURE_COOLDOWN_MS = envInt('BASE_FAILURE_COOLDOWN_MS', 30_000);
+const MAX_FAILURE_COOLDOWN_MS = envInt('MAX_FAILURE_COOLDOWN_MS', 10 * 60_000);
+const MANUAL_RECONNECT_COOLDOWN_MS = envInt('MANUAL_RECONNECT_COOLDOWN_MS', 10_000);
+const DISCONNECT_RECONNECT_COOLDOWN_MS = envInt('DISCONNECT_RECONNECT_COOLDOWN_MS', 45_000);
+const MAX_GLOBAL_ACTIVE_STREAMERS = envInt('MAX_GLOBAL_ACTIVE_STREAMERS', 40);
+const ENABLE_TIKTOK_CHAT_EVENTS = String(process.env.ENABLE_TIKTOK_CHAT_EVENTS || '').toLowerCase() === 'true';
+const ENABLE_TIKTOK_SHARE_EVENTS = String(process.env.ENABLE_TIKTOK_SHARE_EVENTS || '').toLowerCase() === 'true';
+
 const liveSocketStates = new Map(); // socketId -> live connection snapshot
+const globalConnectedStreamerCount = new Map(); // streamerKey -> connected handler count
 
 // Serve client files
 app.use(express.json({ limit: '128kb' }));
@@ -170,6 +190,38 @@ function getTrackedUsernames(handlers) {
     return Array.from(handlers.values()).map((handler) => handler.username);
 }
 
+function incrementGlobalStreamerCount(streamerKey) {
+    const current = Number(globalConnectedStreamerCount.get(streamerKey) || 0);
+    globalConnectedStreamerCount.set(streamerKey, current + 1);
+}
+
+function decrementGlobalStreamerCount(streamerKey) {
+    const current = Number(globalConnectedStreamerCount.get(streamerKey) || 0);
+    if (current <= 1) {
+        globalConnectedStreamerCount.delete(streamerKey);
+        return;
+    }
+    globalConnectedStreamerCount.set(streamerKey, current - 1);
+}
+
+function getGlobalActiveStreamerCount() {
+    let total = 0;
+    for (const value of globalConnectedStreamerCount.values()) {
+        total += Number(value || 0);
+    }
+    return total;
+}
+
+function formatRetryAfterMs(ms) {
+    const totalSeconds = Math.max(1, Math.ceil((Number(ms) || 0) / 1000));
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (seconds === 0) return `${minutes}dk`;
+    return `${minutes}dk ${seconds}s`;
+}
+
 function updateLiveSocketState(socket, handlers, payload = {}) {
     const socketId = socket?.id;
     if (!socketId) return;
@@ -220,7 +272,11 @@ io.on('connection', (socket) => {
 
     // Each tab/socket gets isolated streamer handlers.
     const sessionHandlers = new Map(); // streamerKey -> TikTokHandler
-    const failedConnectAttempts = new Map(); // streamerKey -> { count, blocked, lastError }
+    const failedConnectAttempts = new Map(); // streamerKey -> { count, blocked, lastError, nextAllowedAt }
+    const streamerCooldowns = new Map(); // streamerKey -> { until, reason }
+    const pendingConnectTimers = new Map(); // streamerKey -> timeout
+    const pendingConnects = new Set(); // streamerKey
+    let connectRequestTimestamps = []; // request timestamps for this socket
 
     liveSocketStates.set(socket.id, {
         socketId: socket.id,
@@ -233,6 +289,124 @@ io.on('connection', (socket) => {
         updatedAt: new Date().toISOString()
     });
 
+    function trimConnectRequestWindow(now = Date.now()) {
+        connectRequestTimestamps = connectRequestTimestamps.filter(
+            (value) => (now - value) <= CONNECT_REQUEST_WINDOW_MS
+        );
+    }
+
+    function consumeConnectRequestSlot() {
+        const now = Date.now();
+        trimConnectRequestWindow(now);
+        if (connectRequestTimestamps.length >= MAX_CONNECT_REQUESTS_PER_WINDOW) {
+            return false;
+        }
+        connectRequestTimestamps.push(now);
+        return true;
+    }
+
+    function getStreamerRetryState(streamerKey) {
+        const now = Date.now();
+
+        const failedState = failedConnectAttempts.get(streamerKey);
+        if (failedState?.blocked) {
+            return {
+                blocked: true,
+                failedAttempts: failedState.count,
+                retryAfterMs: Number.POSITIVE_INFINITY
+            };
+        }
+        if (failedState?.nextAllowedAt && failedState.nextAllowedAt > now) {
+            return {
+                blocked: false,
+                failedAttempts: failedState.count,
+                retryAfterMs: failedState.nextAllowedAt - now
+            };
+        }
+
+        const cooldownState = streamerCooldowns.get(streamerKey);
+        if (cooldownState?.until && cooldownState.until > now) {
+            return {
+                blocked: false,
+                retryAfterMs: cooldownState.until - now,
+                reason: cooldownState.reason || 'cooldown'
+            };
+        }
+
+        return null;
+    }
+
+    function setStreamerCooldown(streamerKey, durationMs, reason = 'cooldown') {
+        const normalizedDuration = Math.max(0, Number(durationMs) || 0);
+        if (normalizedDuration <= 0) return;
+
+        streamerCooldowns.set(streamerKey, {
+            until: Date.now() + normalizedDuration,
+            reason
+        });
+    }
+
+    function clearPendingConnect(streamerKey) {
+        const timer = pendingConnectTimers.get(streamerKey);
+        if (timer) {
+            clearTimeout(timer);
+        }
+        pendingConnectTimers.delete(streamerKey);
+        pendingConnects.delete(streamerKey);
+    }
+
+    function disconnectHandler(streamerKey, handler, options = {}) {
+        if (!handler) return;
+
+        const silent = options.silent !== false;
+        const cooldownMs = Math.max(0, Number(options.cooldownMs) || 0);
+
+        handler._released = true;
+        clearPendingConnect(streamerKey);
+
+        if (handler._countedGlobally) {
+            decrementGlobalStreamerCount(streamerKey);
+            handler._countedGlobally = false;
+        }
+
+        if (sessionHandlers.get(streamerKey) === handler) {
+            sessionHandlers.delete(streamerKey);
+        }
+
+        if (cooldownMs > 0) {
+            setStreamerCooldown(streamerKey, cooldownMs, 'manual_disconnect');
+        }
+
+        handler.disconnect({ silent });
+    }
+
+    function canConnectToStreamer(streamerKey, username) {
+        if (sessionHandlers.size + pendingConnects.size >= MAX_STREAMERS_PER_TAB) {
+            return {
+                ok: false,
+                error: `Bu sekmede maksimum ${MAX_STREAMERS_PER_TAB} yayinciya baglanabilirsiniz`
+            };
+        }
+
+        const globalActiveCount = getGlobalActiveStreamerCount();
+        if (globalActiveCount >= MAX_GLOBAL_ACTIVE_STREAMERS) {
+            return {
+                ok: false,
+                error: `Sunucuda ayni anda maksimum ${MAX_GLOBAL_ACTIVE_STREAMERS} aktif baglanti acilabilir`
+            };
+        }
+
+        const sameStreamerActive = Number(globalConnectedStreamerCount.get(streamerKey) || 0);
+        if (sameStreamerActive > 0) {
+            return {
+                ok: false,
+                error: `${username} zaten baska bir sekmede bagli. Ban riskini azaltmak icin ayni yayinciya ikinci baglanti engellendi.`
+            };
+        }
+
+        return { ok: true };
+    }
+
     function connectStreamerForSocket(username) {
         const normalized = normalizeUsername(username);
         if (!normalized) return null;
@@ -243,16 +417,62 @@ io.on('connection', (socket) => {
             return existing;
         }
 
+        const retryState = getStreamerRetryState(streamerKey);
+        if (retryState?.blocked) {
+            emitSocketStatus(socket, sessionHandlers, {
+                username: normalized,
+                connectBlocked: true,
+                failedAttempts: retryState.failedAttempts,
+                error: `${normalized} icin ${MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER} basarisiz deneme oldu. Bu sekmede tekrar denenmeyecek.`
+            });
+            return null;
+        }
+
+        if (retryState?.retryAfterMs && Number.isFinite(retryState.retryAfterMs)) {
+            const retryAfterMs = Math.max(1_000, Math.floor(retryState.retryAfterMs));
+            emitSocketStatus(socket, sessionHandlers, {
+                username: normalized,
+                retryAfterMs,
+                error: `${normalized} icin yeniden baglanti bekleme suresi var. ${formatRetryAfterMs(retryAfterMs)} sonra tekrar deneyin.`
+            });
+            return null;
+        }
+
+        const globalGate = canConnectToStreamer(streamerKey, normalized);
+        if (!globalGate.ok) {
+            emitSocketStatus(socket, sessionHandlers, {
+                username: normalized,
+                error: globalGate.error
+            });
+            return null;
+        }
+
         const handler = new TikTokHandler(normalized, {
+            enableChatEvents: ENABLE_TIKTOK_CHAT_EVENTS,
+            enableShareEvents: ENABLE_TIKTOK_SHARE_EVENTS,
             onStatus: (status) => {
+                if (handler._released) {
+                    return;
+                }
+
                 const statusPayload = { ...status };
 
                 if (statusPayload.connected) {
                     failedConnectAttempts.delete(streamerKey);
+                    streamerCooldowns.delete(streamerKey);
+                    if (!handler._countedGlobally) {
+                        incrementGlobalStreamerCount(streamerKey);
+                        handler._countedGlobally = true;
+                    }
                 }
 
                 // Auto-remove dead handler so same streamer can reconnect in this tab.
                 if (!status.connecting && !status.connected) {
+                    if (handler._countedGlobally) {
+                        decrementGlobalStreamerCount(streamerKey);
+                        handler._countedGlobally = false;
+                    }
+
                     const current = sessionHandlers.get(streamerKey);
                     if (current === handler) {
                         sessionHandlers.delete(streamerKey);
@@ -263,22 +483,36 @@ io.on('connection', (socket) => {
                         const previous = failedConnectAttempts.get(streamerKey) || {
                             count: 0,
                             blocked: false,
-                            lastError: null
+                            lastError: null,
+                            nextAllowedAt: 0
                         };
                         const count = previous.count + 1;
                         const blocked = count >= MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER;
+                        const cooldownMs = blocked
+                            ? 0
+                            : Math.min(
+                                MAX_FAILURE_COOLDOWN_MS,
+                                BASE_FAILURE_COOLDOWN_MS * Math.max(1, Math.pow(2, count - 1))
+                            );
 
                         failedConnectAttempts.set(streamerKey, {
                             count,
                             blocked,
-                            lastError: status.error || previous.lastError || null
+                            lastError: status.error || previous.lastError || null,
+                            nextAllowedAt: blocked ? Number.POSITIVE_INFINITY : Date.now() + cooldownMs
                         });
 
                         statusPayload.failedAttempts = count;
                         statusPayload.connectBlocked = blocked;
                         if (blocked) {
                             statusPayload.error = `${handler.username} icin ${MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER} basarisiz deneme oldu. Bu sekmede tekrar denenmeyecek.`;
+                        } else {
+                            statusPayload.retryAfterMs = cooldownMs;
+                            statusPayload.error = `${handler.username} baglantisi basarisiz. ${formatRetryAfterMs(cooldownMs)} sonra tekrar deneyin.`;
                         }
+                    } else if (!status.disconnectedByUser) {
+                        setStreamerCooldown(streamerKey, DISCONNECT_RECONNECT_COOLDOWN_MS, 'disconnect');
+                        statusPayload.retryAfterMs = DISCONNECT_RECONNECT_COOLDOWN_MS;
                     }
                 }
 
@@ -290,10 +524,94 @@ io.on('connection', (socket) => {
             }
         });
 
+        handler._countedGlobally = false;
+        handler._released = false;
         sessionHandlers.set(streamerKey, handler);
         handler.connect();
 
         return handler;
+    }
+
+    function scheduleConnectStreamer(username, queueIndex = 0) {
+        const normalized = normalizeUsername(username);
+        if (!normalized) return false;
+
+        const streamerKey = normalized.toLowerCase();
+        const existing = sessionHandlers.get(streamerKey);
+        if (existing) {
+            emitSocketStatus(socket, sessionHandlers, {
+                username: existing.username,
+                connected: existing.isConnected,
+                connecting: !existing.isConnected,
+                alreadyTracked: true
+            });
+            return false;
+        }
+
+        if (pendingConnects.has(streamerKey)) {
+            emitSocketStatus(socket, sessionHandlers, {
+                username: normalized,
+                connecting: true,
+                queued: true,
+                alreadyQueued: true
+            });
+            return false;
+        }
+
+        const retryState = getStreamerRetryState(streamerKey);
+        if (retryState?.blocked) {
+            emitSocketStatus(socket, sessionHandlers, {
+                username: normalized,
+                connectBlocked: true,
+                failedAttempts: retryState.failedAttempts,
+                error: `${normalized} icin ${MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER} deneme limiti doldu.`
+            });
+            return false;
+        }
+
+        if (retryState?.retryAfterMs && Number.isFinite(retryState.retryAfterMs)) {
+            const retryAfterMs = Math.max(1_000, Math.floor(retryState.retryAfterMs));
+            emitSocketStatus(socket, sessionHandlers, {
+                username: normalized,
+                retryAfterMs,
+                error: `${normalized} icin bekleme suresi var. ${formatRetryAfterMs(retryAfterMs)} sonra tekrar deneyin.`
+            });
+            return false;
+        }
+
+        const globalGate = canConnectToStreamer(streamerKey, normalized);
+        if (!globalGate.ok) {
+            emitSocketStatus(socket, sessionHandlers, {
+                username: normalized,
+                error: globalGate.error
+            });
+            return false;
+        }
+
+        const jitterMs = CONNECT_JITTER_MS > 0 ? Math.floor(Math.random() * CONNECT_JITTER_MS) : 0;
+        const delayMs = Math.max(0, queueIndex * CONNECT_SPACING_MS + jitterMs);
+
+        pendingConnects.add(streamerKey);
+        emitSocketStatus(socket, sessionHandlers, {
+            username: normalized,
+            connecting: true,
+            queued: true,
+            queueDelayMs: delayMs
+        });
+
+        const timer = setTimeout(() => {
+            pendingConnectTimers.delete(streamerKey);
+            pendingConnects.delete(streamerKey);
+
+            if (!socket.connected) {
+                return;
+            }
+
+            connectStreamerForSocket(normalized);
+        }, delayMs);
+
+        pendingConnectTimers.set(streamerKey, timer);
+        return true;
     }
 
     function disconnectStreamerForSocket(username) {
@@ -301,12 +619,34 @@ io.on('connection', (socket) => {
         if (!normalized) return false;
 
         const streamerKey = normalized.toLowerCase();
+        clearPendingConnect(streamerKey);
+
         const handler = sessionHandlers.get(streamerKey);
         if (!handler) return false;
 
-        sessionHandlers.delete(streamerKey);
-        handler.disconnect({ silent: true });
+        disconnectHandler(streamerKey, handler, {
+            silent: true,
+            cooldownMs: MANUAL_RECONNECT_COOLDOWN_MS
+        });
         return true;
+    }
+
+    function disconnectAllStreamersForSocket() {
+        for (const streamerKey of Array.from(pendingConnects.values())) {
+            clearPendingConnect(streamerKey);
+            setStreamerCooldown(streamerKey, MANUAL_RECONNECT_COOLDOWN_MS, 'manual_disconnect');
+        }
+
+        for (const [streamerKey, handler] of Array.from(sessionHandlers.entries())) {
+            disconnectHandler(streamerKey, handler, {
+                silent: true,
+                cooldownMs: MANUAL_RECONNECT_COOLDOWN_MS
+            });
+        }
+
+        sessionHandlers.clear();
+        pendingConnects.clear();
+        pendingConnectTimers.clear();
     }
 
     // Send snapshot to newly connected tab.
@@ -342,43 +682,26 @@ io.on('connection', (socket) => {
             return;
         }
 
-        for (const username of usernames) {
-            const key = username.toLowerCase();
-            const existing = sessionHandlers.get(key);
-            const failedState = failedConnectAttempts.get(key);
+        if (!consumeConnectRequestSlot()) {
+            emitSocketStatus(socket, sessionHandlers, {
+                error: `Cok hizli baglanma denemesi algilandi. ${formatRetryAfterMs(CONNECT_REQUEST_WINDOW_MS)} sonra tekrar deneyin.`
+            });
+            return;
+        }
 
-            if (existing) {
-                emitSocketStatus(socket, sessionHandlers, {
-                    username: existing.username,
-                    connected: existing.isConnected,
-                    connecting: !existing.isConnected,
-                    alreadyTracked: true
-                });
-                continue;
-            }
+        const queuedUsernames = usernames.slice(0, MAX_USERNAMES_PER_CONNECT_REQUEST);
+        if (usernames.length > queuedUsernames.length) {
+            emitSocketStatus(socket, sessionHandlers, {
+                error: `Tek seferde en fazla ${MAX_USERNAMES_PER_CONNECT_REQUEST} yayinci baglatilabilir.`
+            });
+        }
 
-            if (failedState?.blocked) {
-                emitSocketStatus(socket, sessionHandlers, {
-                    connected: getConnectedUsernames(sessionHandlers).length > 0,
-                    username,
-                    connectBlocked: true,
-                    failedAttempts: failedState.count,
-                    error: `${username} icin 10 deneme limiti doldu. Bu sekmede tekrar denenmeyecek.`
-                });
-                continue;
-            }
-
-            if (sessionHandlers.size >= MAX_STREAMERS_PER_TAB) {
-                emitSocketStatus(socket, sessionHandlers, {
-                    connected: getConnectedUsernames(sessionHandlers).length > 0,
-                    username,
-                    error: `Bu sekmede maksimum ${MAX_STREAMERS_PER_TAB} yayinciya baglanabilirsiniz`
-                });
-                break;
-            }
-
+        let scheduled = 0;
+        for (const username of queuedUsernames) {
             console.log(`[TikTok][${socket.id}] Connection request for: ${username}`);
-            connectStreamerForSocket(username);
+            if (scheduleConnectStreamer(username, scheduled)) {
+                scheduled += 1;
+            }
         }
     });
 
@@ -389,10 +712,7 @@ io.on('connection', (socket) => {
         if (usernames.length === 0) {
             console.log(`[TikTok][${socket.id}] Disconnect all request`);
 
-            for (const handler of sessionHandlers.values()) {
-                handler.disconnect({ silent: true });
-            }
-            sessionHandlers.clear();
+            disconnectAllStreamersForSocket();
 
             emitSocketStatus(socket, sessionHandlers, {
                 connected: false,
@@ -414,11 +734,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        for (const handler of sessionHandlers.values()) {
-            handler.disconnect({ silent: true });
-        }
-        sessionHandlers.clear();
+        disconnectAllStreamersForSocket();
         failedConnectAttempts.clear();
+        streamerCooldowns.clear();
+        connectRequestTimestamps = [];
         liveSocketStates.delete(socket.id);
 
         console.log(`[Socket] Client disconnected: ${socket.id}`);

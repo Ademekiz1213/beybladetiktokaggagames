@@ -862,6 +862,17 @@ body {
     opacity: 0.7;
 }
 
+.ip-note {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    background: rgba(250, 204, 21, 0.1);
+    color: #ffe39a;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 .setting-row input[type="number"] {
     width: 80px;
     padding: 8px 10px;

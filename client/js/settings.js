@@ -61,11 +61,11 @@ class SettingsPanel {
                             </div>
                         </div>
                         <div class="settings-section">
-                            <h3>⚔️ Beyblade Ayarları</h3>
+                            <h3>⚔️ Top Ayarlari</h3>
                             <div class="setting-row">
                                 <div class="setting-label">
                                     <label>❤️ Başlangıç HP</label>
-                                    <span class="setting-hint">Her beyblade bu canla doğar</span>
+                                    <span class="setting-hint">Her oyuncu topu bu canla baslar</span>
                                 </div>
                                 <input type="number" id="settingDefaultHp" min="10" max="9999" value="${this.giftConfig.defaultHp}">
                             </div>
@@ -93,7 +93,7 @@ class SettingsPanel {
                             <div class="setting-row">
                                 <div class="setting-label">
                                     <label>🖼️ Profil Resmini Goster</label>
-                                    <span class="setting-hint">Beyblade ustundeki profil resmini ac/kapat</span>
+                                    <span class="setting-hint">Oyuncu topu ustundeki profil resmini ac/kapat</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="settingShowProfilePic" ${this.giftConfig.showProfilePicture !== false ? 'checked' : ''}>
@@ -138,13 +138,17 @@ class SettingsPanel {
                                 </label>
                             </div>
                         </div>
+                        <div class="settings-section">
+                            <h3>⚖️ IP Uyum Notu</h3>
+                            <p class="ip-note">Bu proje resmi bir marka/oyunla baglantili degildir. Telif ve marka ihlali olusturabilecek ad, logo, gorsel, ses ve muzik kullanmayin.</p>
+                        </div>
                     </div>
 
                     <!-- TAB: SKINS -->
                     <div class="tab-content" data-tab="skins">
                         <div class="settings-section">
-                            <h3>🎨 Beyblade Görünümü</h3>
-                            <p class="skin-desc">Tüm beybladelere uygulanacak görünümü seçin</p>
+                            <h3>🎨 Top Gorunumu</h3>
+                            <p class="skin-desc">Tum oyuncu toplarina uygulanacak gorunumu secin</p>
                             <div id="skinGrid" class="skin-grid"></div>
                         </div>
                         <div class="settings-section">

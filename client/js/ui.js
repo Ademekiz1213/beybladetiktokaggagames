@@ -804,7 +804,7 @@ class UIManager {
 
     // Test mode - fake events
     _sendTestEvent() {
-        const testNames = ['TestUser1', 'TestUser2', 'TestUser3', 'BeybladeKing', 'SpinMaster'];
+        const testNames = ['TestUser1', 'TestUser2', 'TestUser3', 'TopMaster', 'SpinMaster'];
         const testGifts = ['Rose', 'Heart Me', 'Drama Queen', 'Perfume', 'Hand Heart', 'Hat'];
         const randomName = testNames[Math.floor(Math.random() * testNames.length)];
 

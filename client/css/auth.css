@@ -79,6 +79,21 @@ h1 {
     line-height: 1.5;
 }
 
+.legal-note {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 210, 120, 0.3);
+    background: rgba(255, 210, 120, 0.08);
+    color: #ffe7b0;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.legal-note-inline {
+    margin-top: 18px;
+}
+
 .auth-form {
     display: flex;
     flex-direction: column;

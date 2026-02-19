@@ -1,6 +1,6 @@
 // Main entry point
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('[Beyblade Arena] Initializing...');
+    console.log('[Spin Arena] Initializing...');
 
     // Canvas setup
     const canvas = document.getElementById('gameCanvas');
@@ -55,5 +55,5 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    console.log('[Beyblade Arena] Ready! 🌀');
+    console.log('[Spin Arena] Ready! 🌀');
 });

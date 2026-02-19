@@ -622,7 +622,7 @@ class Game {
             ctx.font = '16px Orbitron';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('Hediye göndererek Beyblade\'ini spawn et!', this.canvas.width / 2, this.canvas.height / 2);
+            ctx.fillText('Hediye gondererek topunu oyuna cagir!', this.canvas.width / 2, this.canvas.height / 2);
             ctx.restore();
         }
 

@@ -218,11 +218,11 @@ class SettingsPanel {
                             <div class="setting-row">
                                 <div class="setting-label">
                                     <label>⏱️ Hediye Algılama Gecikmesi</label>
-                                    <span class="setting-hint">Minimum 10 saniye olacak sekilde hediye islem gecikmesi</span>
+                                    <span class="setting-hint">Minimum 1 saniye, varsayilan 10 saniye</span>
                                 </div>
                                 <div class="range-setting-box">
-                                    <input type="range" id="settingGiftDelay" min="10" max="120" step="1" value="${Math.max(10, Math.floor(Number(this.giftConfig.giftDetectionDelaySeconds) || 10))}">
-                                    <span id="settingGiftDelayValue" class="range-setting-value">${Math.max(10, Math.floor(Number(this.giftConfig.giftDetectionDelaySeconds) || 10))} sn</span>
+                                    <input type="range" id="settingGiftDelay" min="1" max="120" step="1" value="${Math.max(1, Math.floor(Number(this.giftConfig.giftDetectionDelaySeconds) || 10))}">
+                                    <span id="settingGiftDelayValue" class="range-setting-value">${Math.max(1, Math.floor(Number(this.giftConfig.giftDetectionDelaySeconds) || 10))} sn</span>
                                 </div>
                             </div>
                         </div>
@@ -317,7 +317,7 @@ class SettingsPanel {
         }
 
         if (delaySlider && delayValue) {
-            const delaySec = Math.max(10, Math.floor(Number(delaySlider.value) || 10));
+            const delaySec = Math.max(1, Math.floor(Number(delaySlider.value) || 10));
             delayValue.textContent = `${delaySec} sn`;
         }
     }
@@ -565,7 +565,7 @@ class SettingsPanel {
         this.giftConfig.profilePicScale = parseFloat(this.overlay.querySelector('#settingProfilePicScale').value) || 0.6;
         this.giftConfig.showProfilePicture = this.overlay.querySelector('#settingShowProfilePic')?.checked !== false;
         this.giftConfig.profileBlurAmount = Math.max(0, Number(this.overlay.querySelector('#settingProfileBlur')?.value) || 0);
-        this.giftConfig.giftDetectionDelaySeconds = Math.max(10, Math.floor(Number(this.overlay.querySelector('#settingGiftDelay')?.value) || 10));
+        this.giftConfig.giftDetectionDelaySeconds = Math.max(1, Math.floor(Number(this.overlay.querySelector('#settingGiftDelay')?.value) || 10));
         this.giftConfig.defaultShieldDuration = parseInt(this.overlay.querySelector('#settingShieldDuration').value) || 5;
         this.giftConfig.likesPerSpawn = parseInt(this.overlay.querySelector('#settingLikesPerSpawn').value) || 50;
         this.giftConfig.likeHealAmount = parseInt(this.overlay.querySelector('#settingLikeHeal').value) || 10;

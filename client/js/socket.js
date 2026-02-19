@@ -91,7 +91,7 @@ class SocketManager {
 
     setGiftDetectionDelay(seconds) {
         const parsed = Number(seconds);
-        this.giftDetectionDelaySeconds = Math.max(10, Number.isFinite(parsed) ? Math.floor(parsed) : 10);
+        this.giftDetectionDelaySeconds = Math.max(1, Number.isFinite(parsed) ? Math.floor(parsed) : 10);
         this._emitGiftDelayIfPossible();
     }
 

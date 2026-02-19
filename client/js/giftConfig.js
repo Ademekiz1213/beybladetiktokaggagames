@@ -120,7 +120,7 @@ class GiftConfig {
         if (data.profilePicScale !== undefined) this.profilePicScale = data.profilePicScale;
         if (data.showProfilePicture !== undefined) this.showProfilePicture = Boolean(data.showProfilePicture);
         if (data.profileBlurAmount !== undefined) this.profileBlurAmount = Math.max(0, Number(data.profileBlurAmount) || 0);
-        if (data.giftDetectionDelaySeconds !== undefined) this.giftDetectionDelaySeconds = Math.max(10, Math.floor(Number(data.giftDetectionDelaySeconds) || 10));
+        if (data.giftDetectionDelaySeconds !== undefined) this.giftDetectionDelaySeconds = Math.max(1, Math.floor(Number(data.giftDetectionDelaySeconds) || 10));
         if (data.defaultShieldDuration !== undefined) this.defaultShieldDuration = data.defaultShieldDuration;
         if (data.selectedSkin !== undefined) this.selectedSkin = data.selectedSkin;
         if (data.arenaTheme !== undefined) this.arenaTheme = data.arenaTheme;

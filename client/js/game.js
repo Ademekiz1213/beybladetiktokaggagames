@@ -121,7 +121,7 @@ class Game {
 
     _getGiftDetectionDelayMs() {
         const rawSeconds = Number(this.giftConfig?.giftDetectionDelaySeconds);
-        const safeSeconds = Math.max(10, Number.isFinite(rawSeconds) ? Math.floor(rawSeconds) : 10);
+        const safeSeconds = Math.max(1, Number.isFinite(rawSeconds) ? Math.floor(rawSeconds) : 10);
         return safeSeconds * 1000;
     }
 

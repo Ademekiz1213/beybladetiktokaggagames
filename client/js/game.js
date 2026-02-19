@@ -124,6 +124,52 @@ class Game {
         return Math.max(1, Math.floor(rawRepeatCount));
     }
 
+    _healBlade(blade, amount) {
+        if (!blade || !blade.alive) return 0;
+
+        const healAmount = Math.max(0, Number(amount) || 0);
+        if (healAmount <= 0) return 0;
+
+        const beforeHp = blade.hp;
+        blade.hp = Math.min(blade.maxHp, blade.hp + healAmount);
+        return Math.max(0, Math.round(blade.hp - beforeHp));
+    }
+
+    _applyRandomLikeBonus(blade, multiples) {
+        if (!blade || !blade.alive) return;
+
+        const rolls = Math.max(1, Math.min(20, Math.floor(Number(multiples) || 1)));
+        const types = ['hp', 'size', 'attack', 'shield'];
+
+        for (let i = 0; i < rolls; i++) {
+            const type = types[Math.floor(Math.random() * types.length)];
+
+            switch (type) {
+                case 'hp': {
+                    const healUnit = Math.max(1, Number(this.giftConfig.likeHealAmount) || 10);
+                    const healed = this._healBlade(blade, healUnit);
+                    const label = healed > 0 ? `LIKE HP +${healed}` : 'LIKE HP FULL';
+                    this.effects.spawnUpgradeEffect(blade.x, blade.y, label, '#22d67a');
+                    break;
+                }
+                case 'size':
+                    blade.addSize(1);
+                    this.effects.spawnUpgradeEffect(blade.x, blade.y, 'LIKE SIZE +1', '#00d4ff');
+                    break;
+                case 'attack':
+                    blade.addAttack(1);
+                    this.effects.spawnUpgradeEffect(blade.x, blade.y, 'LIKE ATK +1', '#f43f8e');
+                    break;
+                case 'shield': {
+                    const shieldDur = Math.max(1, Number(this.giftConfig.defaultShieldDuration) || 5);
+                    blade.activateShield(shieldDur);
+                    this.effects.spawnUpgradeEffect(blade.x, blade.y, `LIKE SHIELD ${shieldDur}s`, '#a855f7');
+                    break;
+                }
+            }
+        }
+    }
+
     _handleGift(data) {
         const giftEffects = this.giftConfig.getGiftEffects(data.giftName);
         const repeatCount = this._resolveGiftRepeatCount(data);
@@ -136,16 +182,19 @@ class Game {
             switch (effect.type) {
                 case 'spawn':
                     if (activeBlade && activeBlade.alive) {
-                        // Already in arena -> convert spawn gifts to size boost.
-                        activeBlade.addSize(totalAmount);
-                        this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `SIZE +${totalAmount}`, '#00d4ff');
+                        // Already in arena -> spawn gifts heal HP instead of size.
+                        const healPerGift = Math.max(1, Number(this.giftConfig.likeHealAmount) || 10);
+                        const healed = this._healBlade(activeBlade, healPerGift * totalAmount);
+                        const label = healed > 0 ? `HP +${healed}` : 'HP FULL';
+                        this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, label, '#22d67a');
                     } else {
-                        // Spawn once, then apply remaining combo gifts as size.
+                        // Spawn once, then remaining combo spawn gifts heal HP.
                         activeBlade = this._spawnBeyblade(data);
                         if (activeBlade && totalAmount > 1) {
-                            const bonusSize = totalAmount - 1;
-                            activeBlade.addSize(bonusSize);
-                            this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `SIZE +${bonusSize}`, '#00d4ff');
+                            const healPerGift = Math.max(1, Number(this.giftConfig.likeHealAmount) || 10);
+                            const healed = this._healBlade(activeBlade, healPerGift * (totalAmount - 1));
+                            const label = healed > 0 ? `HP +${healed}` : 'HP FULL';
+                            this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, label, '#22d67a');
                         }
                     }
                     break;
@@ -226,10 +275,8 @@ class Game {
             this.likeAccumulators[key] = this.likeAccumulators[key] % threshold;
 
             if (existingBlade && existingBlade.alive) {
-                // Already in arena → heal
-                const healAmount = this.giftConfig.likeHealAmount * multiples;
-                existingBlade.addHp(healAmount);
-                this.effects.spawnUpgradeEffect(existingBlade.x, existingBlade.y, `❤️ +${healAmount}`, '#f43f8e');
+                // Already in arena -> grant random bonus(es) from likes.
+                this._applyRandomLikeBonus(existingBlade, multiples);
             } else {
                 // Spawn
                 this._spawnBeyblade(data);

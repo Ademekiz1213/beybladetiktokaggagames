@@ -89,6 +89,22 @@ class Beyblade {
         this.maxHp = Math.max(this.maxHp, this.hp);
     }
 
+    fillHpToMax() {
+        this.hp = this.maxHp;
+    }
+
+    increaseMaxHp(amount, keepFull = true) {
+        const increaseAmount = Math.max(0, Number(amount) || 0);
+        if (increaseAmount <= 0) return;
+
+        this.maxHp += increaseAmount;
+        if (keepFull) {
+            this.hp = this.maxHp;
+        } else {
+            this.hp = Math.min(this.hp, this.maxHp);
+        }
+    }
+
     addAttack(amount) {
         this.attack += amount;
     }

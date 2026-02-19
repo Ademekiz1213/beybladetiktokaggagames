@@ -219,6 +219,7 @@ class Beyblade {
         // Profile picture (optional, doesn't rotate)
         const showProfilePicture = !window.game || !window.game.giftConfig || window.game.giftConfig.showProfilePicture !== false;
         if (showProfilePicture) {
+            const blurPx = Math.max(0, Number(window.game?.giftConfig?.profileBlurAmount) || 0);
             const picScale = (window.game && window.game.giftConfig) ? window.game.giftConfig.profilePicScale : 0.6;
             const picRadius = r * Math.max(0.2, Math.min(0.9, picScale));
             ctx.beginPath();
@@ -228,6 +229,9 @@ class Beyblade {
             ctx.clip();
 
             if (this.profileLoaded && this.profileImage) {
+                if (blurPx > 0) {
+                    ctx.filter = `blur(${blurPx}px)`;
+                }
                 ctx.drawImage(this.profileImage, -picRadius, -picRadius, picRadius * 2, picRadius * 2);
             } else {
                 ctx.fillStyle = this.color;

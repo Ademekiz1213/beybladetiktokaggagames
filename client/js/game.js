@@ -55,6 +55,7 @@ class Game {
         // Timing
         this.lastTime = performance.now();
         this.randomForceTimer = 0;
+        this.pendingGiftQueue = [];
 
         // Bind events
         this._bindTikTokEvents();
@@ -104,7 +105,7 @@ class Game {
     _bindTikTokEvents() {
         // Gift event
         window.socketManager.on('tiktok-gift', (data) => {
-            this._handleGift(data);
+            this._queueGift(data);
         });
 
         // Like event
@@ -116,6 +117,39 @@ class Game {
         window.socketManager.on('tiktok-follow', (data) => {
             this._handleFollow(data);
         });
+    }
+
+    _getGiftDetectionDelayMs() {
+        const rawSeconds = Number(this.giftConfig?.giftDetectionDelaySeconds);
+        const safeSeconds = Math.max(10, Number.isFinite(rawSeconds) ? Math.floor(rawSeconds) : 10);
+        return safeSeconds * 1000;
+    }
+
+    _queueGift(data) {
+        if (!data) return;
+
+        this.pendingGiftQueue.push({
+            processAt: Date.now() + this._getGiftDetectionDelayMs(),
+            data
+        });
+    }
+
+    _processQueuedGifts() {
+        if (!Array.isArray(this.pendingGiftQueue) || this.pendingGiftQueue.length === 0) return;
+
+        const now = Date.now();
+        const remaining = [];
+        for (const item of this.pendingGiftQueue) {
+            if (!item || !item.data) continue;
+
+            if (Number(item.processAt) <= now) {
+                this._handleGift(item.data);
+            } else {
+                remaining.push(item);
+            }
+        }
+
+        this.pendingGiftQueue = remaining;
     }
 
     _resolveGiftRepeatCount(data) {
@@ -451,6 +485,7 @@ class Game {
         this.countdownTimer = 10;
         this.winner = null;
         this.likeAccumulators = {};
+        this.pendingGiftQueue = [];
         this.killFeed = [];
         this.timeScale = 1;
         this._slowMoTimer = 0;
@@ -477,6 +512,9 @@ class Game {
             }
         }
         const scaledDt = dt * this.timeScale;
+
+        // Apply delayed gift queue (ihlal korumasi)
+        this._processQueuedGifts();
 
         // Update screen shake
         this._updateScreenShake(dt);
@@ -713,11 +751,15 @@ class Game {
 
             // Winner profile picture
             if (this.winner.profileImage && this.winner.profileImage.complete) {
+                const blurPx = Math.max(0, Number(this.giftConfig?.profileBlurAmount) || 0);
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(cx, cy, 58, 0, Math.PI * 2);
                 ctx.closePath();
                 ctx.clip();
+                if (blurPx > 0) {
+                    ctx.filter = `blur(${blurPx}px)`;
+                }
                 ctx.drawImage(this.winner.profileImage, cx - 58, cy - 58, 116, 116);
                 ctx.restore();
             } else {
@@ -857,7 +899,7 @@ class Game {
             giftName: giftName,
             repeatCount: 1
         };
-        this._handleGift(data);
+        this._queueGift(data);
     }
 
     // ========== SCORE PERSISTENCE ==========

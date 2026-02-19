@@ -21,6 +21,7 @@
     --text-secondary: #9ca3af;
     --glass-bg: rgba(255, 255, 255, 0.04);
     --glass-border: rgba(255, 255, 255, 0.08);
+    --profile-blur-px: 0px;
     --font-display: 'Orbitron', monospace;
     --font-body: 'Inter', -apple-system, sans-serif;
     --radius: 12px;
@@ -891,6 +892,37 @@ body {
     border-color: var(--accent-cyan);
 }
 
+.range-setting-box {
+    min-width: 220px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.range-setting-box input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent-cyan);
+}
+
+.range-setting-value {
+    min-width: 52px;
+    text-align: right;
+    font-size: 12px;
+    color: var(--accent-cyan);
+    font-weight: 700;
+}
+
+.compliance-warning {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.14);
+    color: #ffd0d0;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 /* ===== GIFT SETTINGS ===== */
 .gift-settings-list {
     display: flex;
@@ -1702,6 +1734,12 @@ body {
     background: rgba(255, 255, 255, 0.06);
 }
 
+.feed-item-avatar,
+.player-avatar,
+.score-avatar {
+    filter: blur(var(--profile-blur-px));
+}
+
 .score-controls {
     display: flex;
     align-items: center;
@@ -1899,6 +1937,16 @@ body {
 
     .connection-state-text {
         text-align: center;
+    }
+
+    .setting-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .range-setting-box {
+        min-width: 0;
+        width: 100%;
     }
 
     .player-panel,

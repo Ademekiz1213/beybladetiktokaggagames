@@ -6,6 +6,7 @@ class SettingsPanel {
         this.activeTab = 'general';
         this._createPanel();
         this._bindEvents();
+        this._applyProfileBlurToDom();
     }
 
     _createPanel() {
@@ -33,6 +34,7 @@ class SettingsPanel {
                     <button class="tab-btn" data-tab="skins">🎨 Görünüm</button>
                     <button class="tab-btn" data-tab="gifts">🎁 Hediyeler</button>
                     <button class="tab-btn" data-tab="windows">🪟 Pencereler</button>
+                    <button class="tab-btn" data-tab="compliance">⚖️ Ihlal Koruma</button>
                 </div>
                 <div class="settings-body">
                     <!-- TAB: GENERAL -->
@@ -138,10 +140,6 @@ class SettingsPanel {
                                 </label>
                             </div>
                         </div>
-                        <div class="settings-section">
-                            <h3>⚖️ IP Uyum Notu</h3>
-                            <p class="ip-note">Bu proje resmi bir marka/oyunla baglantili degildir. Telif ve marka ihlali olusturabilecek ad, logo, gorsel, ses ve muzik kullanmayin.</p>
-                        </div>
                     </div>
 
                     <!-- TAB: SKINS -->
@@ -202,6 +200,37 @@ class SettingsPanel {
                             <button id="resetScoresBtn" class="btn-reset-scores">🗑️ Arena Fatihleri Sıfırla</button>
                         </div>
                     </div>
+
+                    <!-- TAB: COMPLIANCE -->
+                    <div class="tab-content" data-tab="compliance">
+                        <div class="settings-section">
+                            <h3>🛡️ Gizlilik Koruma</h3>
+                            <div class="setting-row">
+                                <div class="setting-label">
+                                    <label>🖼️ Profil Blur Duzeyi</label>
+                                    <span class="setting-hint">Profil resimlerini bulaniklastirir</span>
+                                </div>
+                                <div class="range-setting-box">
+                                    <input type="range" id="settingProfileBlur" min="0" max="20" step="1" value="${Math.max(0, Number(this.giftConfig.profileBlurAmount) || 0)}">
+                                    <span id="settingProfileBlurValue" class="range-setting-value">${Math.max(0, Number(this.giftConfig.profileBlurAmount) || 0)} px</span>
+                                </div>
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-label">
+                                    <label>⏱️ Hediye Algılama Gecikmesi</label>
+                                    <span class="setting-hint">Minimum 10 saniye olacak sekilde hediye islem gecikmesi</span>
+                                </div>
+                                <div class="range-setting-box">
+                                    <input type="range" id="settingGiftDelay" min="10" max="120" step="1" value="${Math.max(10, Math.floor(Number(this.giftConfig.giftDetectionDelaySeconds) || 10))}">
+                                    <span id="settingGiftDelayValue" class="range-setting-value">${Math.max(10, Math.floor(Number(this.giftConfig.giftDetectionDelaySeconds) || 10))} sn</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-section">
+                            <h3>⚠️ Uyari</h3>
+                            <p class="compliance-warning">Bu ayarlari kullanmamiz durumunda olusacak ihlallerden biz sorumlu degiliz.</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="settings-footer">
                     <a id="backToDashboardBtn" href="/dashboard.html" class="btn-back-dashboard">↩ Dashboard'a Don</a>
@@ -229,6 +258,14 @@ class SettingsPanel {
             }
         });
 
+        const profileBlurSlider = this.overlay.querySelector('#settingProfileBlur');
+        const giftDelaySlider = this.overlay.querySelector('#settingGiftDelay');
+        profileBlurSlider?.addEventListener('input', () => {
+            this._syncCompliancePreview();
+            this._applyProfileBlurToDom();
+        });
+        giftDelaySlider?.addEventListener('input', () => this._syncCompliancePreview());
+
         // Tab switching
         this.overlay.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -250,6 +287,8 @@ class SettingsPanel {
                 this.giftConfig.arenaShape = card.dataset.shape;
             });
         });
+
+        this._syncCompliancePreview();
     }
 
     _switchTab(tab) {
@@ -266,6 +305,32 @@ class SettingsPanel {
         });
     }
 
+    _syncCompliancePreview() {
+        const blurSlider = this.overlay.querySelector('#settingProfileBlur');
+        const blurValue = this.overlay.querySelector('#settingProfileBlurValue');
+        const delaySlider = this.overlay.querySelector('#settingGiftDelay');
+        const delayValue = this.overlay.querySelector('#settingGiftDelayValue');
+
+        if (blurSlider && blurValue) {
+            const blur = Math.max(0, Number(blurSlider.value) || 0);
+            blurValue.textContent = `${Math.round(blur)} px`;
+        }
+
+        if (delaySlider && delayValue) {
+            const delaySec = Math.max(10, Math.floor(Number(delaySlider.value) || 10));
+            delayValue.textContent = `${delaySec} sn`;
+        }
+    }
+
+    _applyProfileBlurToDom() {
+        const blurSlider = this.overlay?.querySelector('#settingProfileBlur');
+        const blur = blurSlider
+            ? Math.max(0, Number(blurSlider.value) || 0)
+            : Math.max(0, Number(this.giftConfig?.profileBlurAmount) || 0);
+
+        document.documentElement.style.setProperty('--profile-blur-px', `${blur}px`);
+    }
+
     show() {
         this.settingsBtn.style.display = 'flex';
     }
@@ -280,6 +345,8 @@ class SettingsPanel {
         this._renderGiftList();
         this._renderSkinGrid();
         this._renderArenaThemeGrid();
+        this._syncCompliancePreview();
+        this._applyProfileBlurToDom();
     }
 
     close() {
@@ -497,9 +564,13 @@ class SettingsPanel {
         this.giftConfig.defaultSize = parseInt(this.overlay.querySelector('#settingDefaultSize').value) || 1;
         this.giftConfig.profilePicScale = parseFloat(this.overlay.querySelector('#settingProfilePicScale').value) || 0.6;
         this.giftConfig.showProfilePicture = this.overlay.querySelector('#settingShowProfilePic')?.checked !== false;
+        this.giftConfig.profileBlurAmount = Math.max(0, Number(this.overlay.querySelector('#settingProfileBlur')?.value) || 0);
+        this.giftConfig.giftDetectionDelaySeconds = Math.max(10, Math.floor(Number(this.overlay.querySelector('#settingGiftDelay')?.value) || 10));
         this.giftConfig.defaultShieldDuration = parseInt(this.overlay.querySelector('#settingShieldDuration').value) || 5;
         this.giftConfig.likesPerSpawn = parseInt(this.overlay.querySelector('#settingLikesPerSpawn').value) || 50;
         this.giftConfig.likeHealAmount = parseInt(this.overlay.querySelector('#settingLikeHeal').value) || 10;
+        this._syncCompliancePreview();
+        this._applyProfileBlurToDom();
 
         // Skin is already set via click handler
 

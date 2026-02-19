@@ -597,7 +597,9 @@ class UIManager {
         function refreshPlayers() {
             try {
                 if (!window.opener || !window.opener.game) return;
-                var all = window.opener.game.beyblades || [];
+                var game = window.opener.game;
+                var all = game.beyblades || [];
+                var blurPx = Math.max(0, Number(game.giftConfig && game.giftConfig.profileBlurAmount) || 0);
                 var alive = all.filter(function(b) { return b && b.alive; });
                 alive.sort(function(a, b) { return b.hp - a.hp; });
 
@@ -621,7 +623,7 @@ class UIManager {
                     var hpPercent = Math.max(0, Math.min(100, (hp / maxHp) * 100));
                     var hpColor = getHpColor(hpPercent);
                     var rowClass = b.shieldActive ? 'player-row shielded' : 'player-row';
-                    var avatar = b.profilePictureUrl ? '<img class="avatar" src="' + esc(b.profilePictureUrl) + '" alt="" onerror="this.style.display=\\'none\\'">' : '';
+                    var avatar = b.profilePictureUrl ? '<img class="avatar" style="filter:blur(' + blurPx + 'px)" src="' + esc(b.profilePictureUrl) + '" alt="" onerror="this.style.display=\\'none\\'">' : '';
                     var shield = b.shieldActive ? '<div class="shield">Shield: ' + Math.ceil(b.shieldTimer || 0) + 's</div>' : '';
 
                     html += '<div class="' + rowClass + '">';
@@ -745,6 +747,7 @@ class UIManager {
                 var scores = game.scores;
                 var nicknames = game.nicknames;
                 var pics = game.profilePics || {};
+                var blurPx = Math.max(0, Number(game.giftConfig && game.giftConfig.profileBlurAmount) || 0);
                 var hash = JSON.stringify(scores);
                 if (hash === lastHash) return;
                 lastHash = hash;
@@ -769,7 +772,7 @@ class UIManager {
                     var rankIcon = j < 3 ? icons[j] : (j + 1) + '.';
                     var champClass = j === 0 ? ' score-champion' : '';
                     var avatarHtml = entry.pic
-                        ? '<img class="score-avatar" src="' + entry.pic + '" alt="" onerror="this.style.display=\\'none\\'">'
+                        ? '<img class="score-avatar" style="filter:blur(' + blurPx + 'px)" src="' + entry.pic + '" alt="" onerror="this.style.display=\\'none\\'">'
                         : '<span class="score-avatar score-avatar-placeholder">\\ud83d\\udc64</span>';
                     html += '<div class="score-row' + champClass + '">';
                     html += '<span class="score-rank">' + rankIcon + '</span>';

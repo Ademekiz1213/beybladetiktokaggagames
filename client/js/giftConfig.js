@@ -9,6 +9,8 @@ class GiftConfig {
         this.defaultSize = 1;
         this.profilePicScale = 0.6;
         this.showProfilePicture = true;
+        this.profileBlurAmount = 0;
+        this.giftDetectionDelaySeconds = 10;
         this.defaultShieldDuration = 5;
         this.selectedSkin = 'classic';
         this.arenaTheme = 'cyber';
@@ -99,6 +101,8 @@ class GiftConfig {
             defaultSize: this.defaultSize,
             profilePicScale: this.profilePicScale,
             showProfilePicture: this.showProfilePicture,
+            profileBlurAmount: this.profileBlurAmount,
+            giftDetectionDelaySeconds: this.giftDetectionDelaySeconds,
             defaultShieldDuration: this.defaultShieldDuration,
             selectedSkin: this.selectedSkin,
             arenaTheme: this.arenaTheme,
@@ -115,6 +119,8 @@ class GiftConfig {
         if (data.defaultSize !== undefined) this.defaultSize = data.defaultSize;
         if (data.profilePicScale !== undefined) this.profilePicScale = data.profilePicScale;
         if (data.showProfilePicture !== undefined) this.showProfilePicture = Boolean(data.showProfilePicture);
+        if (data.profileBlurAmount !== undefined) this.profileBlurAmount = Math.max(0, Number(data.profileBlurAmount) || 0);
+        if (data.giftDetectionDelaySeconds !== undefined) this.giftDetectionDelaySeconds = Math.max(10, Math.floor(Number(data.giftDetectionDelaySeconds) || 10));
         if (data.defaultShieldDuration !== undefined) this.defaultShieldDuration = data.defaultShieldDuration;
         if (data.selectedSkin !== undefined) this.selectedSkin = data.selectedSkin;
         if (data.arenaTheme !== undefined) this.arenaTheme = data.arenaTheme;

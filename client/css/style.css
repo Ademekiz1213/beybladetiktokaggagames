@@ -1177,6 +1177,36 @@ body {
     border-bottom: 1px solid var(--glass-border);
 }
 
+.player-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.panel-open-btn {
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    border-radius: 6px;
+    background: rgba(0, 212, 255, 0.1);
+    color: var(--accent-cyan);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+.panel-open-btn:hover {
+    background: rgba(0, 212, 255, 0.2);
+    border-color: rgba(0, 212, 255, 0.45);
+    transform: translateY(-1px);
+}
+
 .panel-title {
     font-family: var(--font-display);
     font-size: 11px;

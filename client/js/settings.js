@@ -179,6 +179,7 @@ class SettingsPanel {
                 </div>
                 <div class="settings-footer">
                     <a id="backToDashboardBtn" href="/dashboard.html" class="btn-back-dashboard">↩ Dashboard'a Don</a>
+                    <button id="openPlayersPopupBtn" class="btn-open-popup">⚔️ Aktif Oyuncular — Ayrı Pencere Aç</button>
                     <button id="openPopupBtn" class="btn-open-popup">🏆 Arena Fatihleri — Ayrı Pencere Aç</button>
                     <button id="resetScoresBtn" class="btn-reset-scores">🗑️ Arena Fatihleri Sıfırla</button>
                     <button id="saveSettingsBtn" class="btn-save-settings">💾 Kaydet</button>
@@ -193,6 +194,9 @@ class SettingsPanel {
         this.overlay.querySelector('.settings-close').addEventListener('click', () => this.close());
         this.overlay.querySelector('#saveSettingsBtn').addEventListener('click', () => this._save());
         this.overlay.querySelector('#addGiftBtn').addEventListener('click', () => this._addGiftRow());
+        this.overlay.querySelector('#openPlayersPopupBtn').addEventListener('click', () => {
+            if (window.uiManager) window.uiManager.openActivePlayersPopup();
+        });
         this.overlay.querySelector('#openPopupBtn').addEventListener('click', () => {
             if (window.uiManager) window.uiManager.openScoreboardPopup();
         });

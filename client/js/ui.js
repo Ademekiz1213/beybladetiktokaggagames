@@ -35,12 +35,14 @@ class UIManager {
         this.playerPanel.className = 'player-panel';
         this.playerPanel.style.display = 'none';
         this.playerPanel.innerHTML = `
-            <div class="panel-header">
+            <div class="panel-header player-panel-header">
                 <span class="panel-title">⚔️ Aktif Oyuncular</span>
+                <button id="openPlayersPanelBtn" class="panel-open-btn" type="button" title="Ayrı pencerede aç">↗</button>
             </div>
             <div id="playerList" class="player-list"></div>
         `;
         document.body.appendChild(this.playerPanel);
+        this.playerPanelOpenBtn = this.playerPanel.querySelector('#openPlayersPanelBtn');
         this.playerList = this.playerPanel.querySelector('#playerList');
     }
 
@@ -114,6 +116,7 @@ class UIManager {
 
         // Test mode
         this.testModeBtn?.addEventListener('click', () => this._sendTestEvent());
+        this.playerPanelOpenBtn?.addEventListener('click', () => this.openActivePlayersPopup());
 
         // Socket events
         window.socketManager.on('tiktok-status', (data) => this._handleStatus(data));
@@ -460,6 +463,188 @@ class UIManager {
         this.scoreboardList.innerHTML = html;
 
         // Event listeners handled by delegation in _createScoreboard
+    }
+
+    openActivePlayersPopup() {
+        if (this._playersPopupWindow && !this._playersPopupWindow.closed) {
+            this._playersPopupWindow.focus();
+            return;
+        }
+
+        this._playersPopupWindow = window.open('', 'AktifOyuncular', 'width=420,height=620,resizable=yes,scrollbars=yes');
+        if (!this._playersPopupWindow) return;
+
+        const doc = this._playersPopupWindow.document;
+        doc.write(`<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>⚔️ Aktif Oyuncular</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a14, #111832, #0a1424);
+            color: #eaf0ff;
+            min-height: 100vh;
+            padding: 22px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 22px;
+            margin-bottom: 16px;
+            color: #00d4ff;
+            text-shadow: 0 0 16px rgba(0,212,255,0.3);
+        }
+        .player-row {
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+        }
+        .player-row.shielded {
+            border-color: rgba(0,212,255,0.45);
+            background: rgba(0,212,255,0.08);
+        }
+        .row-main {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid rgba(255,255,255,0.2);
+            flex-shrink: 0;
+        }
+        .name {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .stats {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .atk { color: #f43f8e; }
+        .hp { color: #22d67a; }
+        .bar {
+            width: 100%;
+            height: 5px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.08);
+        }
+        .fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.2s ease;
+        }
+        .shield {
+            margin-top: 5px;
+            font-size: 10px;
+            color: #8ddcff;
+            font-weight: 700;
+        }
+        .empty {
+            text-align: center;
+            color: rgba(255,255,255,0.45);
+            padding: 26px 8px;
+            font-size: 13px;
+        }
+        .hint {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 10px;
+            color: rgba(255,255,255,0.28);
+        }
+    </style>
+</head>
+<body>
+    <h1>⚔️ Aktif Oyuncular</h1>
+    <div id="playersRoot"><div class="empty">Aktif oyuncu yok</div></div>
+    <div class="hint">Otomatik guncellenir</div>
+    <script>
+        var lastHash = '';
+
+        function esc(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getHpColor(percent) {
+            if (percent > 60) return '#22d67a';
+            if (percent > 30) return '#facc15';
+            return '#ef4444';
+        }
+
+        function refreshPlayers() {
+            try {
+                if (!window.opener || !window.opener.game) return;
+                var all = window.opener.game.beyblades || [];
+                var alive = all.filter(function(b) { return b && b.alive; });
+                alive.sort(function(a, b) { return b.hp - a.hp; });
+
+                var hash = JSON.stringify(alive.map(function(b) {
+                    return [b.uniqueId, Math.ceil(b.hp), b.maxHp, b.attack, b.shieldActive, Math.ceil(b.shieldTimer || 0)];
+                }));
+                if (hash === lastHash) return;
+                lastHash = hash;
+
+                var root = document.getElementById('playersRoot');
+                if (alive.length === 0) {
+                    root.innerHTML = '<div class="empty">Aktif oyuncu yok</div>';
+                    return;
+                }
+
+                var html = '';
+                for (var i = 0; i < alive.length; i++) {
+                    var b = alive[i];
+                    var maxHp = Math.max(1, Number(b.maxHp) || 1);
+                    var hp = Math.max(0, Number(b.hp) || 0);
+                    var hpPercent = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+                    var hpColor = getHpColor(hpPercent);
+                    var rowClass = b.shieldActive ? 'player-row shielded' : 'player-row';
+                    var avatar = b.profilePictureUrl ? '<img class="avatar" src="' + esc(b.profilePictureUrl) + '" alt="" onerror="this.style.display=\\'none\\'">' : '';
+                    var shield = b.shieldActive ? '<div class="shield">Shield: ' + Math.ceil(b.shieldTimer || 0) + 's</div>' : '';
+
+                    html += '<div class="' + rowClass + '">';
+                    html += '<div class="row-main">';
+                    html += avatar;
+                    html += '<div class="name">' + esc(b.nickname) + '</div>';
+                    html += '<div class="stats"><span class="atk">ATK ' + Math.ceil(b.attack || 0) + '</span><span class="hp">' + Math.ceil(hp) + '/' + maxHp + '</span></div>';
+                    html += '</div>';
+                    html += '<div class="bar"><div class="fill" style="width:' + hpPercent + '%;background:' + hpColor + '"></div></div>';
+                    html += shield;
+                    html += '</div>';
+                }
+                root.innerHTML = html;
+            } catch (err) {
+            }
+        }
+
+        setInterval(refreshPlayers, 250);
+        refreshPlayers();
+    </script>
+</body>
+</html>`);
+        doc.close();
     }
 
     // Open Arena Fatihleri in separate browser window

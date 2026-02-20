@@ -3,7 +3,9 @@ class SettingsPanel {
     constructor(giftConfig) {
         this.giftConfig = giftConfig;
         this.isOpen = false;
+        this.guideOpen = false;
         this.activeTab = 'general';
+        this.activeGuideTab = 'overview';
         this.giftCatalog = this._buildGiftCatalog();
         this._giftPickerTargetRow = null;
         this._createPanel();
@@ -21,6 +23,15 @@ class SettingsPanel {
         this.settingsBtn.title = 'Ayarlar';
         this.settingsBtn.style.display = 'none';
         document.body.appendChild(this.settingsBtn);
+
+        // Guide button
+        this.guideBtn = document.createElement('button');
+        this.guideBtn.id = 'guideBtn';
+        this.guideBtn.className = 'btn-guide';
+        this.guideBtn.innerHTML = '📘';
+        this.guideBtn.title = 'Rehber';
+        this.guideBtn.style.display = 'none';
+        document.body.appendChild(this.guideBtn);
 
         // Settings overlay
         this.overlay = document.createElement('div');
@@ -252,10 +263,133 @@ class SettingsPanel {
             </div>
         `;
         document.body.appendChild(this.overlay);
+
+        // Guide overlay
+        this.guideOverlay = document.createElement('div');
+        this.guideOverlay.className = 'guide-overlay';
+        this.guideOverlay.style.display = 'none';
+        this.guideOverlay.innerHTML = `
+            <div class="guide-panel">
+                <div class="guide-header">
+                    <h2>📘 Oyun Rehberi</h2>
+                    <button class="guide-close" type="button">✕</button>
+                </div>
+                <div class="guide-tabs">
+                    <button class="guide-tab-btn active" data-tab="overview">🎯 Oyun Nedir?</button>
+                    <button class="guide-tab-btn" data-tab="flow">⚙️ Nasil Calisir?</button>
+                    <button class="guide-tab-btn" data-tab="general">🎮 Genel</button>
+                    <button class="guide-tab-btn" data-tab="skins">🎨 Gorunum</button>
+                    <button class="guide-tab-btn" data-tab="gifts">🎁 Hediyeler</button>
+                    <button class="guide-tab-btn" data-tab="windows">🪟 Pencereler</button>
+                    <button class="guide-tab-btn" data-tab="compliance">⚖️ Ihlal Koruma</button>
+                </div>
+                <div class="guide-body">
+                    <div class="guide-tab-content active" data-tab="overview">
+                        <div class="guide-section">
+                            <h3>Oyunun Amaci</h3>
+                            <p>
+                                Bu oyun, TikTok yayinindan gelen etkilesimlerle canli bir Beyblade arenasi olusturur.
+                                Yorumcular/izleyiciler oyuna katilir, toplarina hediye ve begeni ile guc verir.
+                                En cok rakip eleyen oyuncular ust siralara cikar.
+                            </p>
+                        </div>
+                        <div class="guide-section">
+                            <h3>Kisa Ozet</h3>
+                            <ul class="guide-list">
+                                <li>Yayinci(lar)i baglarsin.</li>
+                                <li>Izleyici etkilesimleri oyuna anlik yansir.</li>
+                                <li>Oyuncu toplari spawn olur, guclenir, carpisir.</li>
+                                <li>Arena Fatihleri listesi kill sayisina gore siralanir.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="guide-tab-content" data-tab="flow">
+                        <div class="guide-section">
+                            <h3>Adim Adim Calisma Sekli</h3>
+                            <ol class="guide-list guide-list-numbered">
+                                <li>Oyuna premium hesabinla giris yap.</li>
+                                <li>Ayarlar > Genel sekmesinden yayinci adlarini gir.</li>
+                                <li>BAGLAN butonuyla baglantiyi ac (birden fazla yayinci girebilirsin).</li>
+                                <li>Hediye ve begeniler geldikce oyuncular spawn olur veya guc kazanir.</li>
+                                <li>Ayarlar > Hediyeler sekmesinden hangi hediyenin ne yapacagini belirle.</li>
+                                <li>Canli listeleri normal panelde veya ayri pencerede takip et.</li>
+                            </ol>
+                        </div>
+                        <div class="guide-note">
+                            Not: Baglan komutu sadece kendi oturumunu etkiler. Baglantiyi kesmek de sadece senin oturumunu kapatir.
+                        </div>
+                    </div>
+
+                    <div class="guide-tab-content" data-tab="general">
+                        <div class="guide-section">
+                            <h3>Genel Sekmesi Ne Ise Yarar?</h3>
+                            <ul class="guide-list">
+                                <li><strong>Yayinci Baglanti:</strong> TikTok kullanici adlarini virgul veya boslukla girip baglanirsin.</li>
+                                <li><strong>Tumunu Kes:</strong> Bu oturumdaki aktif baglantilarini kapatir.</li>
+                                <li><strong>Top Ayarlari:</strong> Baslangic HP, saldiri, boyut, profil resmi boyutu ve kalkan suresi gibi temel denge ayarlari.</li>
+                                <li><strong>TikTok Etkilesim:</strong> Begeni esigi ve begeniden gelen can artis miktari.</li>
+                                <li><strong>Ses Efektleri:</strong> Oyun seslerini ac/kapat.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="guide-tab-content" data-tab="skins">
+                        <div class="guide-section">
+                            <h3>Gorunum Sekmesi</h3>
+                            <ul class="guide-list">
+                                <li><strong>Top Gorunumu:</strong> Tum oyuncu toplarina uygulanacak skin secimi.</li>
+                                <li><strong>Arena & Arka Plan Temasi:</strong> Sahnedeki renk ve stil temasini degistirir.</li>
+                                <li><strong>Arena Sekli:</strong> Daire veya dikdortgen arena secimi.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="guide-tab-content" data-tab="gifts">
+                        <div class="guide-section">
+                            <h3>Hediyeler Sekmesi</h3>
+                            <ul class="guide-list">
+                                <li>Hediye adini yazmak yerine listeden gorseliyle secersin.</li>
+                                <li>Her hediyeye bir veya birden fazla efekt ekleyebilirsin: spawn, boyut, can, guc, kalkan.</li>
+                                <li>Sunucu yeni hediye gordugunde ad + gorsel kataloga kaydedilir ve tum yayincilarda kullanilabilir.</li>
+                                <li>Hediye Isimleri Sitesi butonu, dis rehber sayfasini yeni sekmede acar.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="guide-tab-content" data-tab="windows">
+                        <div class="guide-section">
+                            <h3>Pencereler Sekmesi</h3>
+                            <ul class="guide-list">
+                                <li><strong>Aktif Oyuncular - Ayri Pencere:</strong> Oyuncu listesini ikinci ekrana tasimak icin.</li>
+                                <li><strong>Arena Fatihleri - Ayri Pencere:</strong> Skor panelini ayri bir ekranda gostermek icin.</li>
+                                <li><strong>Arena Fatihleri Sifirla:</strong> Mevcut skor tablosunu temizler.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="guide-tab-content" data-tab="compliance">
+                        <div class="guide-section">
+                            <h3>Ihlal Koruma Sekmesi</h3>
+                            <ul class="guide-list">
+                                <li><strong>Profil Blur Duzeyi:</strong> Profil resimlerine blur uygular.</li>
+                                <li><strong>Hediye Algilama Gecikmesi:</strong> Hediye etkisini geciktirir (varsayilan 10 sn, minimum 1 sn).</li>
+                                <li>Bu ayarlar istemci + sunucu davranisini birlikte etkiler.</li>
+                            </ul>
+                        </div>
+                        <div class="guide-note guide-note-danger">
+                            Uyari: Ayarlari nasil kullandiginiza bagli olusabilecek platform ihlallerinden siz sorumlusunuz.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(this.guideOverlay);
     }
 
     _bindEvents() {
         this.settingsBtn.addEventListener('click', () => this.toggle());
+        this.guideBtn.addEventListener('click', () => this.toggleGuide());
         this.overlay.querySelector('.settings-close').addEventListener('click', () => this.close());
         this.overlay.querySelector('#saveSettingsBtn').addEventListener('click', () => this._save());
         this.overlay.querySelector('#addGiftBtn').addEventListener('click', () => this._addGiftRow());
@@ -298,6 +432,14 @@ class SettingsPanel {
             if (e.target === this.overlay) this.close();
         });
 
+        this.guideOverlay.querySelector('.guide-close')?.addEventListener('click', () => this.closeGuide());
+        this.guideOverlay.querySelectorAll('.guide-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => this._switchGuideTab(btn.dataset.tab));
+        });
+        this.guideOverlay.addEventListener('click', (e) => {
+            if (e.target === this.guideOverlay) this.closeGuide();
+        });
+
         // Shape card click
         this.overlay.querySelectorAll('.arena-shape-card').forEach(card => {
             card.addEventListener('click', () => {
@@ -323,6 +465,21 @@ class SettingsPanel {
         this.overlay.querySelectorAll('.tab-content').forEach(content => {
             content.classList.toggle('active', content.dataset.tab === tab);
         });
+    }
+
+    _switchGuideTab(tab) {
+        this.activeGuideTab = tab;
+
+        this.guideOverlay.querySelectorAll('.guide-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+
+        this.guideOverlay.querySelectorAll('.guide-tab-content').forEach(content => {
+            content.classList.toggle('active', content.dataset.tab === tab);
+        });
+
+        const guideBody = this.guideOverlay.querySelector('.guide-body');
+        if (guideBody) guideBody.scrollTop = 0;
     }
 
     _syncCompliancePreview() {
@@ -353,13 +510,19 @@ class SettingsPanel {
 
     show() {
         this.settingsBtn.style.display = 'flex';
+        this.guideBtn.style.display = 'flex';
     }
 
     toggle() {
         this.isOpen ? this.close() : this.open();
     }
 
+    toggleGuide() {
+        this.guideOpen ? this.closeGuide() : this.openGuide();
+    }
+
     open() {
+        if (this.guideOpen) this.closeGuide();
         this.isOpen = true;
         this.overlay.style.display = 'flex';
         this._renderGiftList();
@@ -373,6 +536,18 @@ class SettingsPanel {
         this.isOpen = false;
         this._closeGiftPicker();
         this.overlay.style.display = 'none';
+    }
+
+    openGuide() {
+        if (this.isOpen) this.close();
+        this.guideOpen = true;
+        this.guideOverlay.style.display = 'flex';
+        this._switchGuideTab(this.activeGuideTab || 'overview');
+    }
+
+    closeGuide() {
+        this.guideOpen = false;
+        this.guideOverlay.style.display = 'none';
     }
 
     // ========== SKIN GRID ==========

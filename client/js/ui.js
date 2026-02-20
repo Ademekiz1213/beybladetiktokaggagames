@@ -414,12 +414,13 @@ class UIManager {
     }
 
     // Update scoreboard — called from game loop
-    updateScoreboard(scores, nicknames, profilePics) {
+    updateScoreboard(scores, cupScores, nicknames, profilePics) {
         if (!this.scoreboardList) return;
+        cupScores = cupScores || {};
         profilePics = profilePics || {};
 
         // Dirty check — only update DOM when data actually changes
-        const hash = JSON.stringify(scores);
+        const hash = JSON.stringify({ scores, cupScores });
         if (hash === this._lastScoreHash) {
             return;
         }
@@ -427,7 +428,13 @@ class UIManager {
 
         // Convert to sorted array
         const entries = Object.entries(scores)
-            .map(([id, kills]) => ({ id, kills, name: nicknames[id] || id, pic: profilePics[id] || '' }))
+            .map(([id, kills]) => ({
+                id,
+                kills,
+                cups: cupScores[id] || 0,
+                name: nicknames[id] || id,
+                pic: profilePics[id] || ''
+            }))
             .sort((a, b) => b.kills - a.kills);
 
         if (entries.length === 0) {
@@ -454,7 +461,7 @@ class UIManager {
                     <span class="score-name">${this._escapeHtml(entry.name)}</span>
                     <span class="score-controls">
                         <button class="score-btn score-minus" data-uid="${entry.id}" title="Azalt">−</button>
-                        <span class="score-wins">${entry.kills}☠️</span>
+                        <span class="score-wins">${entry.kills}☠️ ${entry.cups}🏆</span>
                         <button class="score-btn score-plus" data-uid="${entry.id}" title="Arttır">+</button>
                     </span>
                 </div>
@@ -746,10 +753,11 @@ class UIManager {
                 if (!window.opener || !window.opener.game) return;
                 var game = window.opener.game;
                 var scores = game.scores;
+                var cupScores = game.cupScores || {};
                 var nicknames = game.nicknames;
                 var pics = game.profilePics || {};
                 var blurPx = Math.max(0, Number(game.giftConfig && game.giftConfig.profileBlurAmount) || 0);
-                var hash = JSON.stringify(scores);
+                var hash = JSON.stringify({ scores: scores, cupScores: cupScores });
                 if (hash === lastHash) return;
                 lastHash = hash;
 
@@ -757,7 +765,13 @@ class UIManager {
                 var keys = Object.keys(scores);
                 var entries = [];
                 for (var i = 0; i < keys.length; i++) {
-                    entries.push({ id: keys[i], kills: scores[keys[i]], name: nicknames[keys[i]] || keys[i], pic: pics[keys[i]] || '' });
+                    entries.push({
+                        id: keys[i],
+                        kills: scores[keys[i]],
+                        cups: cupScores[keys[i]] || 0,
+                        name: nicknames[keys[i]] || keys[i],
+                        pic: pics[keys[i]] || ''
+                    });
                 }
                 entries.sort(function(a, b) { return b.kills - a.kills; });
 
@@ -781,7 +795,7 @@ class UIManager {
                     html += '<span class="score-name">' + entry.name + '</span>';
                     html += '<span class="score-controls">';
                     html += '<button class="score-btn score-minus" data-uid="' + entry.id + '">\\u2212</button>';
-                    html += '<span class="score-wins">' + entry.kills + '\\u2620\\ufe0f</span>';
+                    html += '<span class="score-wins">' + entry.kills + '\\u2620\\ufe0f ' + entry.cups + '\\ud83c\\udfc6</span>';
                     html += '<button class="score-btn score-plus" data-uid="' + entry.id + '">+</button>';
                     html += '</span></div>';
                 }

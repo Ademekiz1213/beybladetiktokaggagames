@@ -25,10 +25,11 @@ class Game {
 
         // Game state
         this.beyblades = [];
-        this.state = 'idle'; // idle, battle
+        this.state = 'idle'; // idle, battle, countdown, winner
         this.countdownTimer = 10;
         this.winner = null;
         this.scores = {}; // uniqueId -> kill count
+        this.cupScores = {}; // uniqueId -> cup count (round wins)
         this.nicknames = {}; // uniqueId -> nickname
         this.profilePics = {}; // uniqueId -> profilePictureUrl
         this._loadScores(); // Load from localStorage
@@ -414,33 +415,30 @@ class Game {
     }
 
     _updateGameState() {
-        const aliveCount = this.beyblades.filter(b => b.alive).length;
+        const aliveBeyblades = this.beyblades.filter(b => b.alive);
+        const aliveCount = aliveBeyblades.length;
 
         // Update player count UI
         if (window.uiManager) {
             window.uiManager.updatePlayerCount(aliveCount);
         }
 
-        if (this.state === 'countdown' || this.state === 'winner') {
-            this.state = 'battle';
-            this.countdownTimer = 10;
-            this.winner = null;
-        }
-
-        if (this.state === 'battle' && aliveCount === 0 && this.beyblades.length > 0) {
-            // Everyone died at once?
-            this._resetRound();
+        if (this.state === 'battle') {
+            if (aliveCount <= 1 && this.beyblades.length > 1) {
+                // Son 1 kisi kalinca geri sayim baslasin.
+                this.state = 'countdown';
+                this.countdownTimer = 10;
+                if (aliveCount === 1) {
+                    this.winner = aliveBeyblades[0];
+                }
+            } else if (aliveCount === 0 && this.beyblades.length > 0) {
+                // Everyone died at once?
+                this._resetRound();
+            }
         }
     }
 
     _handleCountdown(dt) {
-        // Win condition removed: keep continuous battle mode.
-        this.state = 'battle';
-        this.countdownTimer = 10;
-        this.winner = null;
-        this._lastCountdownSec = -1;
-        return;
-
         const aliveBeyblades = this.beyblades.filter(b => b.alive);
 
         if (aliveBeyblades.length > 1) {
@@ -473,9 +471,9 @@ class Game {
 
             if (aliveBeyblades.length === 1) {
                 this.winner = aliveBeyblades[0];
-                // Record score
+                // Record cup
                 const key = this.winner.uniqueId;
-                this.scores[key] = (this.scores[key] || 0) + 1;
+                this.cupScores[key] = (this.cupScores[key] || 0) + 1;
                 this._saveScores();
                 // Celebration effect
                 this.effects.spawnWinnerCelebration(this.winner.x, this.winner.y);
@@ -548,7 +546,7 @@ class Game {
         this.arena.draw();
 
         // Update physics
-        if (this.state === 'battle') {
+        if (this.state === 'battle' || this.state === 'countdown') {
             const aliveBeyblades = this.beyblades.filter(b => b.alive);
             const kills = this.physics.update(aliveBeyblades, scaledDt);
 
@@ -573,6 +571,11 @@ class Game {
                     }
                 }
             }
+        }
+
+        // Handle countdown
+        if (this.state === 'countdown') {
+            this._handleCountdown(scaledDt);
         }
 
         // Remove dead beyblades after animation
@@ -609,7 +612,7 @@ class Game {
         // Update player panel UI
         if (window.uiManager) {
             window.uiManager.updatePlayerPanel(this.beyblades);
-            window.uiManager.updateScoreboard(this.scores, this.nicknames, this.profilePics);
+            window.uiManager.updateScoreboard(this.scores, this.cupScores, this.nicknames, this.profilePics);
         }
 
         requestAnimationFrame(() => this._gameLoop());
@@ -798,7 +801,7 @@ class Game {
             ctx.fillText('🎉 KAZANDI! 🎉', cx, cy + 142);
 
             // Win count
-            const winCount = this.scores[this.winner.uniqueId] || 1;
+            const winCount = this.cupScores[this.winner.uniqueId] || 1;
             ctx.fillStyle = 'rgba(250, 204, 21, 0.5)';
             ctx.font = '12px Inter';
             ctx.fillText(`${winCount}. zafer`, cx, cy + 162);
@@ -903,6 +906,7 @@ class Game {
     _saveScores() {
         try {
             localStorage.setItem('beyblade_scores', JSON.stringify(this.scores));
+            localStorage.setItem('beyblade_cups', JSON.stringify(this.cupScores));
             localStorage.setItem('beyblade_nicknames', JSON.stringify(this.nicknames));
             localStorage.setItem('beyblade_profilepics', JSON.stringify(this.profilePics));
         } catch (e) { /* ignore */ }
@@ -911,9 +915,11 @@ class Game {
     _loadScores() {
         try {
             const saved = localStorage.getItem('beyblade_scores');
+            const cups = localStorage.getItem('beyblade_cups');
             const names = localStorage.getItem('beyblade_nicknames');
             const pics = localStorage.getItem('beyblade_profilepics');
             if (saved) this.scores = JSON.parse(saved);
+            if (cups) this.cupScores = JSON.parse(cups);
             if (names) this.nicknames = JSON.parse(names);
             if (pics) this.profilePics = JSON.parse(pics);
         } catch (e) { /* ignore */ }
@@ -933,6 +939,7 @@ class Game {
 
     resetScores() {
         this.scores = {};
+        this.cupScores = {};
         this.nicknames = {};
         this.profilePics = {};
         this._saveScores();

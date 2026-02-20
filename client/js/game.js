@@ -25,10 +25,10 @@ class Game {
 
         // Game state
         this.beyblades = [];
-        this.state = 'idle'; // idle, battle, countdown, winner
+        this.state = 'idle'; // idle, battle
         this.countdownTimer = 10;
         this.winner = null;
-        this.scores = {}; // uniqueId -> win count
+        this.scores = {}; // uniqueId -> kill count
         this.nicknames = {}; // uniqueId -> nickname
         this.profilePics = {}; // uniqueId -> profilePictureUrl
         this._loadScores(); // Load from localStorage
@@ -83,6 +83,14 @@ class Game {
 
     // ─── KILL FEED ─────────────────────────────────────
     addKillFeedEntry(killer, victim) {
+        if (killer && killer.uniqueId) {
+            const killerId = killer.uniqueId;
+            this.scores[killerId] = (this.scores[killerId] || 0) + 1;
+            if (killer.nickname) this.nicknames[killerId] = killer.nickname;
+            if (killer.profilePictureUrl) this.profilePics[killerId] = killer.profilePictureUrl;
+            this._saveScores();
+        }
+
         const entry = {
             killerName: killer.nickname || 'Unknown',
             victimName: victim.nickname || 'Unknown',
@@ -406,30 +414,33 @@ class Game {
     }
 
     _updateGameState() {
-        const aliveBeyblades = this.beyblades.filter(b => b.alive);
-        const aliveCount = aliveBeyblades.length;
+        const aliveCount = this.beyblades.filter(b => b.alive).length;
 
         // Update player count UI
         if (window.uiManager) {
             window.uiManager.updatePlayerCount(aliveCount);
         }
 
-        if (this.state === 'battle') {
-            if (aliveCount <= 1 && this.beyblades.length > 1) {
-                // Only one left → start countdown
-                this.state = 'countdown';
-                this.countdownTimer = 10;
-                if (aliveCount === 1) {
-                    this.winner = aliveBeyblades[0];
-                }
-            } else if (aliveCount === 0 && this.beyblades.length > 0) {
-                // Everyone died at once?
-                this._resetRound();
-            }
+        if (this.state === 'countdown' || this.state === 'winner') {
+            this.state = 'battle';
+            this.countdownTimer = 10;
+            this.winner = null;
+        }
+
+        if (this.state === 'battle' && aliveCount === 0 && this.beyblades.length > 0) {
+            // Everyone died at once?
+            this._resetRound();
         }
     }
 
     _handleCountdown(dt) {
+        // Win condition removed: keep continuous battle mode.
+        this.state = 'battle';
+        this.countdownTimer = 10;
+        this.winner = null;
+        this._lastCountdownSec = -1;
+        return;
+
         const aliveBeyblades = this.beyblades.filter(b => b.alive);
 
         if (aliveBeyblades.length > 1) {
@@ -537,7 +548,7 @@ class Game {
         this.arena.draw();
 
         // Update physics
-        if (this.state === 'battle' || this.state === 'countdown') {
+        if (this.state === 'battle') {
             const aliveBeyblades = this.beyblades.filter(b => b.alive);
             const kills = this.physics.update(aliveBeyblades, scaledDt);
 
@@ -564,11 +575,6 @@ class Game {
             }
         }
 
-        // Handle countdown
-        if (this.state === 'countdown') {
-            this._handleCountdown(scaledDt);
-        }
-
         // Remove dead beyblades after animation
         this.beyblades = this.beyblades.filter(b => {
             if (!b.alive && b.damageFlash <= 0) return false;
@@ -578,20 +584,9 @@ class Game {
         // Update effects
         this.effects.update(scaledDt);
 
-        // Draw beyblades (winner grows)
+        // Draw beyblades
         for (const b of this.beyblades) {
-            if (this.state === 'winner' && this.winner === b) {
-                this.ctx.save();
-                this._winnerGrowProgress = Math.min(1, this._winnerGrowProgress + dt * 0.8);
-                const growScale = 1 + this._winnerGrowProgress * 0.5;
-                this.ctx.translate(b.x, b.y);
-                this.ctx.scale(growScale, growScale);
-                this.ctx.translate(-b.x, -b.y);
-                b.draw(this.ctx);
-                this.ctx.restore();
-            } else {
-                b.draw(this.ctx);
-            }
+            b.draw(this.ctx);
         }
 
         // Draw effects on top

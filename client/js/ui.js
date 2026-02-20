@@ -427,11 +427,11 @@ class UIManager {
 
         // Convert to sorted array
         const entries = Object.entries(scores)
-            .map(([id, wins]) => ({ id, wins, name: nicknames[id] || id, pic: profilePics[id] || '' }))
-            .sort((a, b) => b.wins - a.wins);
+            .map(([id, kills]) => ({ id, kills, name: nicknames[id] || id, pic: profilePics[id] || '' }))
+            .sort((a, b) => b.kills - a.kills);
 
         if (entries.length === 0) {
-            this.scoreboardList.innerHTML = '<div class="player-empty">Henüz kazanan yok</div>';
+            this.scoreboardList.innerHTML = '<div class="player-empty">Henüz kill yok</div>';
             return;
         }
 
@@ -454,7 +454,7 @@ class UIManager {
                     <span class="score-name">${this._escapeHtml(entry.name)}</span>
                     <span class="score-controls">
                         <button class="score-btn score-minus" data-uid="${entry.id}" title="Azalt">−</button>
-                        <span class="score-wins">${entry.wins}🏆</span>
+                        <span class="score-wins">${entry.kills}☠️</span>
                         <button class="score-btn score-plus" data-uid="${entry.id}" title="Arttır">+</button>
                     </span>
                 </div>
@@ -727,7 +727,7 @@ class UIManager {
 </head>
 <body>
     <h1>🏆 Arena Fatihleri</h1>
-    <div id="popupList"><div class="empty">Henüz kazanan yok</div></div>
+    <div id="popupList"><div class="empty">Henüz kill yok</div></div>
     <div class="auto-update">Otomatik güncellenir</div>
     <script>
         var lastHash = '';
@@ -757,12 +757,12 @@ class UIManager {
                 var keys = Object.keys(scores);
                 var entries = [];
                 for (var i = 0; i < keys.length; i++) {
-                    entries.push({ id: keys[i], wins: scores[keys[i]], name: nicknames[keys[i]] || keys[i], pic: pics[keys[i]] || '' });
+                    entries.push({ id: keys[i], kills: scores[keys[i]], name: nicknames[keys[i]] || keys[i], pic: pics[keys[i]] || '' });
                 }
-                entries.sort(function(a, b) { return b.wins - a.wins; });
+                entries.sort(function(a, b) { return b.kills - a.kills; });
 
                 if (entries.length === 0) {
-                    container.innerHTML = '<div class="empty">Hen\\u00fcz kazanan yok</div>';
+                    container.innerHTML = '<div class="empty">Hen\\u00fcz kill yok</div>';
                     return;
                 }
 
@@ -781,7 +781,7 @@ class UIManager {
                     html += '<span class="score-name">' + entry.name + '</span>';
                     html += '<span class="score-controls">';
                     html += '<button class="score-btn score-minus" data-uid="' + entry.id + '">\\u2212</button>';
-                    html += '<span class="score-wins">' + entry.wins + '\\ud83c\\udfc6</span>';
+                    html += '<span class="score-wins">' + entry.kills + '\\u2620\\ufe0f</span>';
                     html += '<button class="score-btn score-plus" data-uid="' + entry.id + '">+</button>';
                     html += '</span></div>';
                 }

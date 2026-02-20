@@ -5,6 +5,7 @@ class SocketManager {
         this.eventHandlers = {};
         this.sessionUserPayload = null;
         this.giftDetectionDelaySeconds = 10;
+        this.giftCatalogSnapshot = null;
 
         window.addEventListener('auth-ready', (event) => {
             const user = event?.detail?.user || null;
@@ -60,6 +61,16 @@ class SocketManager {
         this.socket.on('admin-announcement', (data) => {
             console.log('[Socket] Admin announcement:', data);
             this._trigger('admin-announcement', data);
+        });
+
+        this.socket.on('gift-catalog-snapshot', (data) => {
+            this.giftCatalogSnapshot = data || null;
+            this._trigger('gift-catalog-snapshot', data);
+        });
+
+        this.socket.on('gift-catalog-updated', (data) => {
+            this._mergeGiftCatalogUpdate(data);
+            this._trigger('gift-catalog-updated', data);
         });
     }
 
@@ -129,6 +140,34 @@ class SocketManager {
         this.socket.emit('set-gift-delay', {
             giftDetectionDelaySeconds: this.giftDetectionDelaySeconds
         });
+    }
+
+    _mergeGiftCatalogUpdate(payload) {
+        const gift = payload?.gift;
+        if (!gift || !this.giftCatalogSnapshot || !Array.isArray(this.giftCatalogSnapshot.gifts)) {
+            return;
+        }
+
+        const giftName = String(gift.giftName || '').trim();
+        if (!giftName) return;
+
+        const normalizedName = giftName.toLowerCase();
+        const existingIndex = this.giftCatalogSnapshot.gifts.findIndex((item) => {
+            return String(item?.giftName || '').trim().toLowerCase() === normalizedName;
+        });
+
+        if (existingIndex >= 0) {
+            this.giftCatalogSnapshot.gifts[existingIndex] = {
+                ...this.giftCatalogSnapshot.gifts[existingIndex],
+                ...gift
+            };
+        } else {
+            this.giftCatalogSnapshot.gifts.push(gift);
+        }
+
+        if (payload?.updatedAt) {
+            this.giftCatalogSnapshot.updatedAt = payload.updatedAt;
+        }
     }
 
     _trigger(event, data) {

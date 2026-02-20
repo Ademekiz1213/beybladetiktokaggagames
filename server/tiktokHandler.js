@@ -56,6 +56,33 @@ class TikTokHandler {
         };
     }
 
+    _resolveGiftPictureUrl(data) {
+        const directCandidates = [
+            data?.giftPictureUrl,
+            data?.imageUrl,
+            data?.url
+        ];
+
+        for (const candidate of directCandidates) {
+            const normalized = String(candidate || '').trim();
+            if (/^https?:\/\//i.test(normalized)) return normalized;
+        }
+
+        const extendedCandidates = [
+            data?.extendedGiftInfo?.giftPictureUrl,
+            data?.extendedGiftInfo?.imageUrl,
+            data?.extendedGiftInfo?.icon?.url_list?.[0],
+            data?.extendedGiftInfo?.icon?.urlList?.[0]
+        ];
+
+        for (const candidate of extendedCandidates) {
+            const normalized = String(candidate || '').trim();
+            if (/^https?:\/\//i.test(normalized)) return normalized;
+        }
+
+        return '';
+    }
+
     async connect() {
         this.connection = new WebcastPushConnection(this.username);
 
@@ -103,6 +130,7 @@ class TikTokHandler {
                 profilePictureUrl: data.profilePictureUrl,
                 giftId: data.giftId,
                 giftName: data.giftName || `Gift_${data.giftId}`,
+                giftPictureUrl: this._resolveGiftPictureUrl(data),
                 diamondCount: data.diamondCount || 0,
                 repeatCount: data.repeatCount || 1,
                 repeatEnd: data.repeatEnd,

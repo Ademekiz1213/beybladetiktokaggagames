@@ -286,10 +286,11 @@ class UIManager {
 
     _addGiftFeed(data) {
         const count = data.repeatCount > 1 ? ` x${data.repeatCount}` : '';
+        const giftImageHtml = this._giftFeedImageHtml(data);
         this._addFeedItem(
             data.profilePictureUrl,
             data.nickname,
-            `${this._streamerBadge(data)} ğŸ <span class="gift-name">${this._escapeHtml(data.giftName)}${count}</span>`
+            `${this._streamerBadge(data)} ${giftImageHtml}<span class="gift-name">${this._escapeHtml(data.giftName)}${count}</span>`
         );
     }
 
@@ -845,6 +846,14 @@ class UIManager {
     _streamerBadge(data) {
         if (!data || !data.streamerUsername) return '';
         return `<span class="streamer-tag">@${this._escapeHtml(data.streamerUsername)}</span>`;
+    }
+
+    _giftFeedImageHtml(data) {
+        const imageUrl = String(data?.giftPictureUrl || '').trim();
+        if (!/^https?:\/\//i.test(imageUrl)) return '';
+
+        const escaped = this._escapeHtml(imageUrl);
+        return `<img class="feed-gift-icon" src="${escaped}" alt="" onerror="this.style.display='none'"> `;
     }
 
     _escapeHtml(str) {

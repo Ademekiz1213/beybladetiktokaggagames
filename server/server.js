@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const TikTokHandler = require('./tiktokHandler');
 const { registerPremiumRoutes, resolveRequestUser, isAdminEmail, resolveAdminSenderName } = require('./premiumService');
+const { GiftCatalogService } = require('./giftCatalogService');
 
 const app = express();
 const server = http.createServer(app);
@@ -39,6 +40,7 @@ const ENABLE_TIKTOK_SHARE_EVENTS = String(process.env.ENABLE_TIKTOK_SHARE_EVENTS
 
 const liveSocketStates = new Map(); // socketId -> live connection snapshot
 const globalConnectedStreamerCount = new Map(); // streamerKey -> connected handler count
+const giftCatalogService = new GiftCatalogService();
 
 // Serve client files
 app.use(express.json({ limit: '128kb' }));
@@ -49,6 +51,14 @@ app.get('/health', (_req, res) => {
     res.status(200).json({
         ok: true,
         service: 'beyblade-tiktok-server'
+    });
+});
+
+app.get('/api/gift-catalog', (_req, res) => {
+    const snapshot = giftCatalogService.getSnapshot();
+    res.json({
+        ok: true,
+        ...snapshot
     });
 });
 
@@ -575,6 +585,21 @@ io.on('connection', (socket) => {
             onEvent: (eventName, eventData) => {
                 // Important: emit only to this tab.
                 if (eventName === 'tiktok-gift') {
+                    const upsertResult = giftCatalogService.upsertFromGiftEvent(eventData);
+                    if (upsertResult?.entry) {
+                        eventData = {
+                            ...eventData,
+                            giftPictureUrl: upsertResult.entry.imageUrl || String(eventData?.giftPictureUrl || '')
+                        };
+                    }
+
+                    if (upsertResult?.changed && upsertResult.entry) {
+                        io.emit('gift-catalog-updated', {
+                            gift: upsertResult.entry,
+                            updatedAt: upsertResult.updatedAt
+                        });
+                    }
+
                     queueGiftEventForSocket(eventName, eventData);
                     return;
                 }
@@ -716,6 +741,8 @@ io.on('connection', (socket) => {
         giftDetectionDelaySeconds: giftDelaySeconds
     });
 
+    socket.emit('gift-catalog-snapshot', giftCatalogService.getSnapshot());
+
     socket.on('set-gift-delay', (payload) => {
         const nextDelay = normalizeGiftDelaySeconds(
             payload?.giftDetectionDelaySeconds ?? payload?.seconds ?? payload
@@ -818,6 +845,12 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`[Server] Running on http://localhost:${PORT}`);
-});
+giftCatalogService.init()
+    .catch((error) => {
+        console.error('[GiftCatalog] Init failed:', error);
+    })
+    .finally(() => {
+        server.listen(PORT, () => {
+            console.log(`[Server] Running on http://localhost:${PORT}`);
+        });
+    });

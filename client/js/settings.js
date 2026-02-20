@@ -8,6 +8,7 @@ class SettingsPanel {
         this._giftPickerTargetRow = null;
         this._createPanel();
         this._bindEvents();
+        this._bindSocketGiftCatalogEvents();
         this._applyProfileBlurToDom();
     }
 
@@ -505,31 +506,63 @@ class SettingsPanel {
         requestAnimationFrame(() => this._animateSkinPreviews(container));
     }
 
+    _bindSocketGiftCatalogEvents() {
+        if (!window.socketManager || typeof window.socketManager.on !== 'function') {
+            return;
+        }
+
+        window.socketManager.on('gift-catalog-snapshot', (payload) => this._applyGiftCatalogSnapshot(payload));
+        window.socketManager.on('gift-catalog-updated', (payload) => this._applyGiftCatalogUpdate(payload));
+
+        if (window.socketManager.giftCatalogSnapshot) {
+            this._applyGiftCatalogSnapshot(window.socketManager.giftCatalogSnapshot);
+        }
+    }
+
     _buildGiftCatalog() {
-        return [
-            { name: 'Rose', icon: '🌹' },
-            { name: 'GG', icon: '🎉' },
-            { name: 'Heart Me', icon: '💖' },
-            { name: 'Finger Heart', icon: '🫶' },
-            { name: 'Ice Cream Cone', icon: '🍦' },
-            { name: 'Drama Queen', icon: '👑' },
-            { name: 'Perfume', icon: '🧴' },
-            { name: 'Hand Heart', icon: '🫰' },
-            { name: 'Hat', icon: '🎩' },
-            { name: 'Galaxy', icon: '🌌' },
-            { name: 'Universe', icon: '🪐' },
-            { name: 'TikTok', icon: '🎵' },
-            { name: 'Swan', icon: '🦢' },
-            { name: 'Money Gun', icon: '💸' },
-            { name: 'Castle', icon: '🏰' },
-            { name: 'Sports Car', icon: '🏎️' },
-            { name: 'Diamond', icon: '💎' },
-            { name: 'Treasure Box', icon: '🎁' },
-            { name: 'Lion', icon: '🦁' },
-            { name: 'Fireworks', icon: '🎆' }
-        ].map((item) => ({
-            ...item,
-            key: this._normalizeGiftKey(item.name)
+        const names = [
+            'Balloon',
+            'Cap',
+            'Doughnut',
+            'Finger Heart',
+            'Flying Kiss',
+            'Freestyle',
+            'GG',
+            'Galaksi',
+            'Galaxy',
+            'Hand Heart',
+            'Hat',
+            'Heart',
+            'Hearts',
+            'Heart Me',
+            'Ice Cream',
+            'Ice Cream Cone',
+            'Love You',
+            'Money Gun',
+            'Nazar Boncugu',
+            'Perfume',
+            'Popular',
+            'Rosa',
+            'Rose',
+            'Tea',
+            'TikTok',
+            'Turkish coffee',
+            'Drama Queen',
+            'Universe',
+            'Swan',
+            'Castle',
+            'Sports Car',
+            'Diamond',
+            'Treasure Box',
+            'Lion',
+            'Fireworks'
+        ];
+
+        return names.map((name) => ({
+            giftId: null,
+            name,
+            imageUrl: '',
+            key: this._normalizeGiftKey(name)
         }));
     }
 
@@ -537,10 +570,115 @@ class SettingsPanel {
         return String(name || '').trim().toLowerCase();
     }
 
+    _normalizeGiftImageUrl(url) {
+        const normalized = String(url || '').trim();
+        if (!/^https?:\/\//i.test(normalized)) return '';
+        return normalized;
+    }
+
+    _mergeGiftCatalogEntries(entries) {
+        if (!Array.isArray(entries) || entries.length === 0) return false;
+
+        let changed = false;
+        for (const rawEntry of entries) {
+            const giftName = String(rawEntry?.giftName || rawEntry?.name || '').trim();
+            if (!giftName) continue;
+
+            const key = this._normalizeGiftKey(giftName);
+            const parsedGiftId = Number(rawEntry?.giftId ?? rawEntry?.id);
+            const giftId = Number.isFinite(parsedGiftId) && parsedGiftId > 0
+                ? Math.floor(parsedGiftId)
+                : null;
+            const imageUrl = this._normalizeGiftImageUrl(
+                rawEntry?.imageUrl || rawEntry?.giftPictureUrl || rawEntry?.giftImageUrl
+            );
+
+            let target = this.giftCatalog.find((entry) => entry.key === key) || null;
+            if (!target && giftId) {
+                target = this.giftCatalog.find((entry) => Number(entry.giftId) === giftId) || null;
+            }
+
+            if (!target) {
+                this.giftCatalog.push({
+                    giftId,
+                    name: giftName,
+                    imageUrl,
+                    key
+                });
+                changed = true;
+                continue;
+            }
+
+            if (target.name !== giftName) {
+                target.name = giftName;
+                changed = true;
+            }
+
+            if (giftId && Number(target.giftId) !== giftId) {
+                target.giftId = giftId;
+                changed = true;
+            }
+
+            if (imageUrl && target.imageUrl !== imageUrl) {
+                target.imageUrl = imageUrl;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this.giftCatalog.sort((a, b) => String(a.name).localeCompare(String(b.name), 'tr', { sensitivity: 'base' }));
+        }
+        return changed;
+    }
+
+    _applyGiftCatalogSnapshot(payload) {
+        const changed = this._mergeGiftCatalogEntries(payload?.gifts);
+        if (changed) this._refreshGiftRowVisuals();
+    }
+
+    _applyGiftCatalogUpdate(payload) {
+        const updates = payload?.gift ? [payload.gift] : [];
+        const changed = this._mergeGiftCatalogEntries(updates);
+        if (changed) this._refreshGiftRowVisuals();
+    }
+
+    _setGiftThumbImage(imgElement, imageUrl) {
+        if (!imgElement) return;
+
+        imgElement.onerror = () => {
+            imgElement.removeAttribute('src');
+            imgElement.style.display = 'none';
+        };
+
+        const normalizedUrl = this._normalizeGiftImageUrl(imageUrl);
+        if (normalizedUrl) {
+            imgElement.src = normalizedUrl;
+            imgElement.style.display = 'block';
+            return;
+        }
+
+        imgElement.removeAttribute('src');
+        imgElement.style.display = 'none';
+    }
+
+    _refreshGiftRowVisuals() {
+        const rows = this.overlay?.querySelectorAll('.gift-setting-row');
+        if (rows) {
+            rows.forEach((row) => {
+                const selectedName = row.querySelector('.gift-name-input')?.value || '';
+                this._setGiftRowGift(row, selectedName);
+            });
+        }
+
+        if (this._giftPickerTargetRow) {
+            this._renderGiftPickerOptions();
+        }
+    }
+
     _resolveGiftVisual(giftName) {
         const normalizedName = String(giftName || '').trim();
         if (!normalizedName) {
-            return { name: 'Hediye sec', icon: '🎁', key: '' };
+            return { name: 'Hediye sec', imageUrl: '', key: '', giftId: null };
         }
 
         const key = this._normalizeGiftKey(normalizedName);
@@ -548,8 +686,9 @@ class SettingsPanel {
         if (found) return found;
 
         return {
+            giftId: null,
             name: normalizedName,
-            icon: '🎁',
+            imageUrl: '',
             key
         };
     }
@@ -563,12 +702,12 @@ class SettingsPanel {
 
         const visual = this._resolveGiftVisual(normalizedName);
         const pickerBtn = row.querySelector('.gift-picker-btn');
-        const iconEl = row.querySelector('.gift-picker-emoji');
+        const imageEl = row.querySelector('.gift-picker-thumb-img');
         const nameEl = row.querySelector('.gift-picker-name');
 
         if (pickerBtn) pickerBtn.classList.toggle('is-empty', !normalizedName);
-        if (iconEl) iconEl.textContent = visual.icon;
         if (nameEl) nameEl.textContent = visual.name;
+        this._setGiftThumbImage(imageEl, visual.imageUrl);
     }
 
     _renderGiftPickerOptions() {
@@ -588,15 +727,20 @@ class SettingsPanel {
             customSelected.type = 'button';
             customSelected.className = 'gift-picker-option selected';
 
-            const customIcon = document.createElement('span');
-            customIcon.className = 'gift-picker-option-emoji';
-            customIcon.textContent = '🎁';
+            const customThumb = document.createElement('span');
+            customThumb.className = 'gift-picker-option-thumb';
+
+            const customThumbImg = document.createElement('img');
+            customThumbImg.className = 'gift-picker-option-thumb-img';
+            customThumbImg.alt = '';
+            this._setGiftThumbImage(customThumbImg, '');
+            customThumb.appendChild(customThumbImg);
 
             const customName = document.createElement('span');
             customName.className = 'gift-picker-option-name';
             customName.textContent = selectedName;
 
-            customSelected.appendChild(customIcon);
+            customSelected.appendChild(customThumb);
             customSelected.appendChild(customName);
             customSelected.addEventListener('click', () => this._closeGiftPicker());
             grid.appendChild(customSelected);
@@ -608,15 +752,25 @@ class SettingsPanel {
             optionBtn.className = 'gift-picker-option';
             if (item.key === selectedKey) optionBtn.classList.add('selected');
 
-            const icon = document.createElement('span');
-            icon.className = 'gift-picker-option-emoji';
-            icon.textContent = item.icon;
+            const thumb = document.createElement('span');
+            thumb.className = 'gift-picker-option-thumb';
+
+            const thumbImg = document.createElement('img');
+            thumbImg.className = 'gift-picker-option-thumb-img';
+            thumbImg.alt = '';
+            thumbImg.loading = 'lazy';
+            thumbImg.decoding = 'async';
+            thumbImg.onerror = () => {
+                thumbImg.style.display = 'none';
+            };
+            this._setGiftThumbImage(thumbImg, item.imageUrl);
+            thumb.appendChild(thumbImg);
 
             const name = document.createElement('span');
             name.className = 'gift-picker-option-name';
             name.textContent = item.name;
 
-            optionBtn.appendChild(icon);
+            optionBtn.appendChild(thumb);
             optionBtn.appendChild(name);
             optionBtn.addEventListener('click', () => {
                 if (this._giftPickerTargetRow) {
@@ -674,7 +828,9 @@ class SettingsPanel {
         row.innerHTML = `
             <div class="gift-name-row">
                 <button type="button" class="gift-picker-btn is-empty">
-                    <span class="gift-picker-emoji">🎁</span>
+                    <span class="gift-picker-thumb">
+                        <img class="gift-picker-thumb-img" alt="">
+                    </span>
                     <span class="gift-picker-name">Hediye sec</span>
                     <span class="gift-picker-arrow">▾</span>
                 </button>

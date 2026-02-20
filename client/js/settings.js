@@ -140,6 +140,16 @@ class SettingsPanel {
                                 </div>
                                 <input type="number" id="settingLikeHeal" min="1" max="100" value="${this.giftConfig.likeHealAmount}">
                             </div>
+                            <div class="setting-row">
+                                <div class="setting-label">
+                                    <label>🎲 Beğeni Rastgele Bonus</label>
+                                    <span class="setting-hint">Kapalıysa beğeni sadece can arttırır</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settingLikeRandomBonus" ${this.giftConfig.enableRandomLikeBonus !== false ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
                         <div class="settings-section">
                             <h3>🔊 Ses Efektleri</h3>
@@ -328,7 +338,7 @@ class SettingsPanel {
                                 <li><strong>Yayinci Baglanti:</strong> TikTok kullanici adlarini virgul veya boslukla girip baglanirsin.</li>
                                 <li><strong>Tumunu Kes:</strong> Bu oturumdaki aktif baglantilarini kapatir.</li>
                                 <li><strong>Top Ayarlari:</strong> Baslangic HP, saldiri, boyut, profil resmi boyutu ve kalkan suresi gibi temel denge ayarlari.</li>
-                                <li><strong>TikTok Etkilesim:</strong> Begeni esigi ve begeniden gelen can artis miktari.</li>
+                                <li><strong>TikTok Etkilesim:</strong> Begeni esigi, begeniden gelen can artis miktari ve rastgele bonus ac/kapat secenegi.</li>
                                 <li><strong>Ses Efektleri:</strong> Oyun seslerini ac/kapat.</li>
                             </ul>
                         </div>
@@ -1069,6 +1079,7 @@ class SettingsPanel {
         this.giftConfig.defaultShieldDuration = parseInt(this.overlay.querySelector('#settingShieldDuration').value) || 5;
         this.giftConfig.likesPerSpawn = parseInt(this.overlay.querySelector('#settingLikesPerSpawn').value) || 50;
         this.giftConfig.likeHealAmount = parseInt(this.overlay.querySelector('#settingLikeHeal').value) || 10;
+        this.giftConfig.enableRandomLikeBonus = this.overlay.querySelector('#settingLikeRandomBonus')?.checked !== false;
         this._syncCompliancePreview();
         this._applyProfileBlurToDom();
 

@@ -76,12 +76,12 @@ class Beyblade {
     }
 
     addSize(amount) {
-        this.sizeLevel += amount;
+        const delta = Math.max(0, Number(amount) || 0);
+        if (delta <= 0) return;
+
+        this.sizeLevel += delta;
         this.radius = this.baseRadius + (this.sizeLevel - 1) * 5;
         this.mass = 1 + (this.sizeLevel - 1) * 0.3;
-        const hpRatio = this.hp / this.maxHp;
-        this.maxHp = 100 + (this.sizeLevel - 1) * 20;
-        this.hp = this.maxHp * hpRatio;
     }
 
     addHp(amount) {

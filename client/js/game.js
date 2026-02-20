@@ -215,6 +215,16 @@ class Game {
         }
     }
 
+    _applyLikeHealBonus(blade, multiples) {
+        if (!blade || !blade.alive) return;
+
+        const healUnit = Math.max(1, Number(this.giftConfig.likeHealAmount) || 10);
+        const totalHeal = healUnit * Math.max(1, Math.floor(Number(multiples) || 1));
+        const healed = this._healBlade(blade, totalHeal);
+        const label = healed > 0 ? `LIKE HP +${healed}` : 'LIKE HP FULL';
+        this.effects.spawnUpgradeEffect(blade.x, blade.y, label, '#22d67a');
+    }
+
     _handleGift(data) {
         const giftEffects = this.giftConfig.getGiftEffects(data.giftName);
         const repeatCount = this._resolveGiftRepeatCount(data);
@@ -320,8 +330,12 @@ class Game {
             this.likeAccumulators[key] = this.likeAccumulators[key] % threshold;
 
             if (existingBlade && existingBlade.alive) {
-                // Already in arena -> grant random bonus(es) from likes.
-                this._applyRandomLikeBonus(existingBlade, multiples);
+                // Already in arena -> random bonus or only HP by setting.
+                if (this.giftConfig.enableRandomLikeBonus === false) {
+                    this._applyLikeHealBonus(existingBlade, multiples);
+                } else {
+                    this._applyRandomLikeBonus(existingBlade, multiples);
+                }
             } else {
                 // Spawn
                 this._spawnBeyblade(data);

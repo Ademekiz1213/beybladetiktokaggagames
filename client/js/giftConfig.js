@@ -4,6 +4,7 @@ class GiftConfig {
         // Default likesPerSpawn
         this.likesPerSpawn = 50;
         this.likeHealAmount = 10;
+        this.enableRandomLikeBonus = true;
         this.defaultHp = 200;
         this.defaultAttack = 10;
         this.defaultSize = 1;
@@ -96,6 +97,7 @@ class GiftConfig {
         return {
             likesPerSpawn: this.likesPerSpawn,
             likeHealAmount: this.likeHealAmount,
+            enableRandomLikeBonus: this.enableRandomLikeBonus,
             defaultHp: this.defaultHp,
             defaultAttack: this.defaultAttack,
             defaultSize: this.defaultSize,
@@ -114,6 +116,7 @@ class GiftConfig {
     fromJSON(data) {
         if (data.likesPerSpawn !== undefined) this.likesPerSpawn = data.likesPerSpawn;
         if (data.likeHealAmount !== undefined) this.likeHealAmount = data.likeHealAmount;
+        if (data.enableRandomLikeBonus !== undefined) this.enableRandomLikeBonus = Boolean(data.enableRandomLikeBonus);
         if (data.defaultHp !== undefined) this.defaultHp = data.defaultHp;
         if (data.defaultAttack !== undefined) this.defaultAttack = data.defaultAttack;
         if (data.defaultSize !== undefined) this.defaultSize = data.defaultSize;

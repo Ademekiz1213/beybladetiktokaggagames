@@ -949,6 +949,159 @@ body {
     margin-bottom: 10px;
 }
 
+.gift-picker-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--accent-yellow);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.gift-picker-btn:hover {
+    border-color: var(--accent-yellow);
+    background: rgba(255, 226, 122, 0.08);
+}
+
+.gift-picker-btn.is-empty {
+    color: var(--text-secondary);
+}
+
+.gift-picker-emoji {
+    width: 24px;
+    text-align: center;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.gift-picker-name {
+    flex: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gift-picker-arrow {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.gift-picker-modal {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(2, 6, 23, 0.72);
+    backdrop-filter: blur(6px);
+}
+
+.gift-picker-dialog {
+    width: min(780px, calc(100vw - 40px));
+    max-height: min(75vh, 620px);
+    background: rgba(8, 12, 25, 0.96);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.gift-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.gift-picker-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.gift-picker-close {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.gift-picker-close:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.gift-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    padding: 12px;
+    overflow: auto;
+}
+
+.gift-picker-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 86px;
+    padding: 10px 8px;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.2s, background 0.2s;
+}
+
+.gift-picker-option:hover {
+    border-color: rgba(0, 212, 255, 0.55);
+    background: rgba(0, 212, 255, 0.14);
+    transform: translateY(-1px);
+}
+
+.gift-picker-option.selected {
+    border-color: rgba(255, 226, 122, 0.75);
+    background: rgba(255, 226, 122, 0.13);
+}
+
+.gift-picker-option-emoji {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.gift-picker-option-name {
+    max-width: 100%;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .gift-name-input {
     flex: 1;
     padding: 8px 12px;
@@ -1947,6 +2100,15 @@ body {
     .range-setting-box {
         min-width: 0;
         width: 100%;
+    }
+
+    .gift-picker-dialog {
+        width: calc(100vw - 20px);
+        max-height: 78vh;
+    }
+
+    .gift-picker-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .player-panel,

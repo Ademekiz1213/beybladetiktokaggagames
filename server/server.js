@@ -26,12 +26,13 @@ const CONNECT_REQUEST_WINDOW_MS = envInt('CONNECT_REQUEST_WINDOW_MS', 60_000);
 const MAX_CONNECT_REQUESTS_PER_WINDOW = envInt('MAX_CONNECT_REQUESTS_PER_WINDOW', 12);
 const CONNECT_SPACING_MS = envInt('CONNECT_SPACING_MS', 2_000);
 const CONNECT_JITTER_MS = envInt('CONNECT_JITTER_MS', 1_200);
-const BASE_FAILURE_COOLDOWN_MS = envInt('BASE_FAILURE_COOLDOWN_MS', 30_000);
-const MAX_FAILURE_COOLDOWN_MS = envInt('MAX_FAILURE_COOLDOWN_MS', 10 * 60_000);
+const BASE_FAILURE_COOLDOWN_MS = Math.max(1_000, envInt('BASE_FAILURE_COOLDOWN_MS', 1_000));
+const MAX_FAILURE_COOLDOWN_MS = Math.max(BASE_FAILURE_COOLDOWN_MS, envInt('MAX_FAILURE_COOLDOWN_MS', 5_000));
 const MANUAL_RECONNECT_COOLDOWN_MS = envInt('MANUAL_RECONNECT_COOLDOWN_MS', 10_000);
-const DISCONNECT_RECONNECT_COOLDOWN_MS = envInt('DISCONNECT_RECONNECT_COOLDOWN_MS', 45_000);
-const AUTO_RECONNECT_BASE_MS = Math.max(1_000, envInt('AUTO_RECONNECT_BASE_MS', 5_000));
-const AUTO_RECONNECT_MAX_MS = Math.max(AUTO_RECONNECT_BASE_MS, envInt('AUTO_RECONNECT_MAX_MS', 45_000));
+const DISCONNECT_RECONNECT_COOLDOWN_MS = Math.max(1_000, envInt('DISCONNECT_RECONNECT_COOLDOWN_MS', 5_000));
+const AUTO_RECONNECT_BASE_MS = Math.max(1_000, envInt('AUTO_RECONNECT_BASE_MS', 1_000));
+const AUTO_RECONNECT_STEP_MS = Math.max(1_000, envInt('AUTO_RECONNECT_STEP_MS', 1_000));
+const AUTO_RECONNECT_MAX_MS = Math.max(AUTO_RECONNECT_BASE_MS, envInt('AUTO_RECONNECT_MAX_MS', 5_000));
 const MAX_AUTO_RECONNECT_ATTEMPTS = envInt('MAX_AUTO_RECONNECT_ATTEMPTS', 10);
 const MAX_GLOBAL_ACTIVE_STREAMERS = envInt('MAX_GLOBAL_ACTIVE_STREAMERS', 40);
 const MIN_GIFT_DELAY_SECONDS = envInt('MIN_GIFT_DELAY_SECONDS', 1);
@@ -823,8 +824,8 @@ io.on('connection', (socket) => {
 
     function getAutoReconnectDelayMs(attempt) {
         const safeAttempt = Math.max(1, Math.floor(Number(attempt) || 1));
-        const multiplier = Math.pow(2, Math.max(0, safeAttempt - 1));
-        return Math.min(AUTO_RECONNECT_MAX_MS, AUTO_RECONNECT_BASE_MS * multiplier);
+        const incrementalDelay = AUTO_RECONNECT_BASE_MS + ((safeAttempt - 1) * AUTO_RECONNECT_STEP_MS);
+        return Math.min(AUTO_RECONNECT_MAX_MS, incrementalDelay);
     }
 
     function scheduleAutoReconnect(streamerKey, handler) {
@@ -1131,7 +1132,7 @@ io.on('connection', (socket) => {
                             ? 0
                             : Math.min(
                                 MAX_FAILURE_COOLDOWN_MS,
-                                BASE_FAILURE_COOLDOWN_MS * Math.max(1, Math.pow(2, count - 1))
+                                BASE_FAILURE_COOLDOWN_MS * count
                             );
 
                         failedConnectAttempts.set(streamerKey, {

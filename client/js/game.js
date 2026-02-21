@@ -188,6 +188,33 @@ class Game {
         return Math.max(0, Math.round(blade.hp - beforeHp));
     }
 
+    _getSizeLimitState() {
+        const enabled = this.giftConfig?.sizeLimitEnabled === true;
+        const maxLevel = Math.max(1, Math.min(200, Math.floor(Number(this.giftConfig?.maxSizeLevel) || 10)));
+        return { enabled, maxLevel };
+    }
+
+    _addSizeWithLimit(blade, amount) {
+        if (!blade || !blade.alive) return 0;
+
+        const requested = Math.max(0, Math.floor(Number(amount) || 0));
+        if (requested <= 0) return 0;
+
+        const { enabled, maxLevel } = this._getSizeLimitState();
+        if (!enabled) {
+            blade.addSize(requested);
+            return requested;
+        }
+
+        const currentLevel = Math.max(1, Math.floor(Number(blade.sizeLevel) || 1));
+        const remaining = Math.max(0, maxLevel - currentLevel);
+        if (remaining <= 0) return 0;
+
+        const applied = Math.min(requested, remaining);
+        blade.addSize(applied);
+        return applied;
+    }
+
     _applyRandomLikeBonus(blade, multiples) {
         if (!blade || !blade.alive) return;
 
@@ -206,8 +233,11 @@ class Game {
                     break;
                 }
                 case 'size':
-                    blade.addSize(1);
-                    this.effects.spawnUpgradeEffect(blade.x, blade.y, 'LIKE SIZE +1', '#00d4ff');
+                    if (this._addSizeWithLimit(blade, 1) > 0) {
+                        this.effects.spawnUpgradeEffect(blade.x, blade.y, 'LIKE SIZE +1', '#00d4ff');
+                    } else {
+                        this.effects.spawnUpgradeEffect(blade.x, blade.y, 'SIZE LIMIT', '#94a3b8');
+                    }
                     break;
                 case 'attack':
                     blade.addAttack(1);
@@ -267,8 +297,12 @@ class Game {
                         activeBlade = this._spawnBeyblade(data);
                     }
                     if (activeBlade && activeBlade.alive) {
-                        activeBlade.addSize(totalAmount);
-                        this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `SIZE +${totalAmount}`, '#00d4ff');
+                        const applied = this._addSizeWithLimit(activeBlade, totalAmount);
+                        if (applied > 0) {
+                            this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `SIZE +${applied}`, '#00d4ff');
+                        } else {
+                            this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, 'SIZE LIMIT', '#94a3b8');
+                        }
                     }
                     break;
 
@@ -471,7 +505,7 @@ class Game {
         blade.attack = this.giftConfig.defaultAttack;
         blade.skinId = this.giftConfig.selectedSkin || 'classic';
         if (this.giftConfig.defaultSize > 1) {
-            blade.addSize(this.giftConfig.defaultSize - 1);
+            this._addSizeWithLimit(blade, this.giftConfig.defaultSize - 1);
         }
 
         this.beyblades.push(blade);
@@ -1049,6 +1083,41 @@ class Game {
             this.scores[uniqueId] = newVal;
         }
         this._saveScores();
+    }
+
+    removeActiveBeyblade(uniqueId) {
+        const targetId = String(uniqueId || '').trim();
+        if (!targetId) return false;
+
+        let removed = false;
+        this.beyblades = this.beyblades.filter((blade) => {
+            const shouldRemove = blade && blade.alive && String(blade.uniqueId || '') === targetId;
+            if (shouldRemove) {
+                removed = true;
+                return false;
+            }
+            return true;
+        });
+
+        if (!removed) return false;
+
+        delete this.likeAccumulators[targetId];
+
+        if (this.state === 'battle') {
+            this._updateGameState();
+        } else if (this.state === 'countdown') {
+            const aliveBeyblades = this.beyblades.filter((b) => b.alive);
+            if (aliveBeyblades.length > 1) {
+                this.state = 'battle';
+                this.countdownTimer = this._getWinnerCountdownSeconds();
+            } else if (aliveBeyblades.length === 0) {
+                this._resetRound();
+            } else {
+                this.winner = aliveBeyblades[0];
+            }
+        }
+
+        return true;
     }
 
     resetScores() {

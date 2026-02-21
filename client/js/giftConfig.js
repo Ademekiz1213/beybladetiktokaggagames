@@ -9,6 +9,8 @@ class GiftConfig {
         this.defaultHp = 200;
         this.defaultAttack = 10;
         this.defaultSize = 1;
+        this.sizeLimitEnabled = false;
+        this.maxSizeLevel = 10;
         this.profilePicScale = 0.6;
         this.showProfilePicture = true;
         this.profileBlurAmount = 0;
@@ -104,6 +106,8 @@ class GiftConfig {
             defaultHp: this.defaultHp,
             defaultAttack: this.defaultAttack,
             defaultSize: this.defaultSize,
+            sizeLimitEnabled: this.sizeLimitEnabled,
+            maxSizeLevel: this.maxSizeLevel,
             profilePicScale: this.profilePicScale,
             showProfilePicture: this.showProfilePicture,
             profileBlurAmount: this.profileBlurAmount,
@@ -125,6 +129,8 @@ class GiftConfig {
         if (data.defaultHp !== undefined) this.defaultHp = data.defaultHp;
         if (data.defaultAttack !== undefined) this.defaultAttack = data.defaultAttack;
         if (data.defaultSize !== undefined) this.defaultSize = data.defaultSize;
+        if (data.sizeLimitEnabled !== undefined) this.sizeLimitEnabled = Boolean(data.sizeLimitEnabled);
+        if (data.maxSizeLevel !== undefined) this.maxSizeLevel = Math.max(1, Math.min(200, Math.floor(Number(data.maxSizeLevel) || 10)));
         if (data.profilePicScale !== undefined) this.profilePicScale = data.profilePicScale;
         if (data.showProfilePicture !== undefined) this.showProfilePicture = Boolean(data.showProfilePicture);
         if (data.profileBlurAmount !== undefined) this.profileBlurAmount = Math.max(0, Number(data.profileBlurAmount) || 0);

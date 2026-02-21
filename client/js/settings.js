@@ -108,6 +108,23 @@ class SettingsPanel {
                             </div>
                             <div class="setting-row">
                                 <div class="setting-label">
+                                    <label>🚧 Büyüme Sınırı Aktif</label>
+                                    <span class="setting-hint">Açıkken beyblade boyutu belirlenen seviyeyi geçemez</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settingSizeLimitEnabled" ${this.giftConfig.sizeLimitEnabled === true ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row" id="settingSizeLimitRow">
+                                <div class="setting-label">
+                                    <label>📐 Maksimum Boyut Seviyesi</label>
+                                    <span class="setting-hint">Sınır açıkken geçerli olur</span>
+                                </div>
+                                <input type="number" id="settingMaxSizeLevel" min="1" max="200" value="${Math.max(1, Math.min(200, Math.floor(Number(this.giftConfig.maxSizeLevel) || 10)))}">
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-label">
                                     <label>🖼️ Profil Resim Boyutu</label>
                                     <span class="setting-hint">0.2 (küçük) → 0.9 (büyük)</span>
                                 </div>
@@ -454,11 +471,13 @@ class SettingsPanel {
 
         const profileBlurSlider = this.overlay.querySelector('#settingProfileBlur');
         const giftDelaySlider = this.overlay.querySelector('#settingGiftDelay');
+        const sizeLimitToggle = this.overlay.querySelector('#settingSizeLimitEnabled');
         profileBlurSlider?.addEventListener('input', () => {
             this._syncCompliancePreview();
             this._applyProfileBlurToDom();
         });
         giftDelaySlider?.addEventListener('input', () => this._syncCompliancePreview());
+        sizeLimitToggle?.addEventListener('change', () => this._syncSizeLimitControls());
 
         // Tab switching
         this.overlay.querySelectorAll('.tab-btn').forEach(btn => {
@@ -491,6 +510,7 @@ class SettingsPanel {
         });
 
         this._syncCompliancePreview();
+        this._syncSizeLimitControls();
     }
 
     _switchTab(tab) {
@@ -550,6 +570,19 @@ class SettingsPanel {
             : Math.max(0, Number(this.giftConfig?.profileBlurAmount) || 0);
 
         document.documentElement.style.setProperty('--profile-blur-px', `${blur}px`);
+    }
+
+    _syncSizeLimitControls() {
+        const toggle = this.overlay?.querySelector('#settingSizeLimitEnabled');
+        const input = this.overlay?.querySelector('#settingMaxSizeLevel');
+        const row = this.overlay?.querySelector('#settingSizeLimitRow');
+        if (!toggle || !input) return;
+
+        const enabled = toggle.checked;
+        input.disabled = !enabled;
+        if (row) {
+            row.classList.toggle('is-disabled', !enabled);
+        }
     }
 
     show() {
@@ -612,6 +645,8 @@ class SettingsPanel {
         setValue('#settingDefaultHp', this.giftConfig.defaultHp);
         setValue('#settingDefaultAttack', this.giftConfig.defaultAttack);
         setValue('#settingDefaultSize', this.giftConfig.defaultSize);
+        setChecked('#settingSizeLimitEnabled', this.giftConfig.sizeLimitEnabled === true);
+        setValue('#settingMaxSizeLevel', Math.max(1, Math.floor(Number(this.giftConfig.maxSizeLevel) || 10)));
         setValue('#settingProfilePicScale', this.giftConfig.profilePicScale);
         setChecked('#settingShowProfilePic', this.giftConfig.showProfilePicture !== false);
         setValue('#settingShieldDuration', this.giftConfig.defaultShieldDuration);
@@ -628,6 +663,7 @@ class SettingsPanel {
         });
 
         this._syncCompliancePreview();
+        this._syncSizeLimitControls();
         this._applyProfileBlurToDom();
     }
 
@@ -1143,6 +1179,11 @@ class SettingsPanel {
         this.giftConfig.defaultHp = parseInt(this.overlay.querySelector('#settingDefaultHp').value) || 200;
         this.giftConfig.defaultAttack = parseInt(this.overlay.querySelector('#settingDefaultAttack').value) || 10;
         this.giftConfig.defaultSize = parseInt(this.overlay.querySelector('#settingDefaultSize').value) || 1;
+        this.giftConfig.sizeLimitEnabled = this.overlay.querySelector('#settingSizeLimitEnabled')?.checked === true;
+        this.giftConfig.maxSizeLevel = Math.max(
+            1,
+            Math.min(200, Math.floor(Number(this.overlay.querySelector('#settingMaxSizeLevel')?.value) || 10))
+        );
         this.giftConfig.profilePicScale = parseFloat(this.overlay.querySelector('#settingProfilePicScale').value) || 0.6;
         this.giftConfig.showProfilePicture = this.overlay.querySelector('#settingShowProfilePic')?.checked !== false;
         this.giftConfig.profileBlurAmount = Math.max(0, Number(this.overlay.querySelector('#settingProfileBlur')?.value) || 0);
@@ -1157,6 +1198,7 @@ class SettingsPanel {
         this.giftConfig.enableRandomLikeBonus = this.overlay.querySelector('#settingLikeRandomBonus')?.checked !== false;
         this.giftConfig.followSpawnEnabled = this.overlay.querySelector('#settingFollowSpawnEnabled')?.checked !== false;
         this._syncCompliancePreview();
+        this._syncSizeLimitControls();
         this._applyProfileBlurToDom();
 
         // Skin is already set via click handler

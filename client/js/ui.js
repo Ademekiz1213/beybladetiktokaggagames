@@ -141,6 +141,24 @@ class UIManager {
         this.startupAnnouncementOverlay?.querySelector('#startupAnnouncementCloseBtn')?.addEventListener('click', () => {
             this._dismissStartupAnnouncement();
         });
+        this.playerList?.addEventListener('click', (event) => {
+            const button = event.target.closest('.player-delete-btn');
+            if (!button) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const uniqueId = String(button.dataset.playerId || '').trim();
+            const nickname = String(button.dataset.playerName || '').trim();
+            if (!uniqueId || !window.game || typeof window.game.removeActiveBeyblade !== 'function') {
+                return;
+            }
+
+            const removed = window.game.removeActiveBeyblade(uniqueId);
+            if (!removed) return;
+
+            this._addFeedItem('', 'Moderatör', `<span class="follow-action">🗑️ ${this._escapeHtml(nickname || uniqueId)} arenadan silindi</span>`);
+        });
 
         // Socket events
         window.socketManager.on('tiktok-status', (data) => this._handleStatus(data));
@@ -520,6 +538,9 @@ class UIManager {
             else if (hpPercent > 30) hpColor = '#facc15';
             else hpColor = '#ef4444';
 
+            const safeUniqueId = this._escapeHtml(b.uniqueId || '');
+            const safeNickname = this._escapeHtml(b.nickname || '');
+
             const shieldHtml = b.shieldActive
                 ? `<div class="player-shield-bar">
                        <span class="shield-label">🛡️ ${Math.ceil(b.shieldTimer)}s</span>
@@ -536,7 +557,8 @@ class UIManager {
                     <div class="player-info">
                         <img class="player-avatar" src="${b.profilePictureUrl || ''}" alt=""
                              onerror="this.style.display='none'">
-                        <span class="player-name">${this._escapeHtml(b.nickname)}</span>
+                        <span class="player-name">${safeNickname}</span>
+                        <button class="player-delete-btn" type="button" data-player-id="${safeUniqueId}" data-player-name="${safeNickname}" title="Oyuncuyu arenadan sil">🗑️</button>
                     </div>
                     <div class="player-stats">
                         <span class="stat-attack">⚔️${b.attack}</span>
@@ -690,6 +712,32 @@ class UIManager {
             font-weight: 700;
             flex-shrink: 0;
         }
+        .delete-btn {
+            width: 24px;
+            height: 24px;
+            border: 1px solid rgba(239,68,68,0.3);
+            border-radius: 6px;
+            background: rgba(239,68,68,0.12);
+            color: #ff9c9c;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s, background 0.2s, border-color 0.2s;
+        }
+        .player-row:hover .delete-btn,
+        .player-row:focus-within .delete-btn {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .delete-btn:hover {
+            background: rgba(239,68,68,0.22);
+            border-color: rgba(239,68,68,0.5);
+        }
         .atk { color: #f43f8e; }
         .hp { color: #22d67a; }
         .bar {
@@ -746,6 +794,14 @@ class UIManager {
             return '#ef4444';
         }
 
+        function removePlayer(uniqueId) {
+            try {
+                if (!window.opener || !window.opener.game || typeof window.opener.game.removeActiveBeyblade !== 'function') return;
+                window.opener.game.removeActiveBeyblade(uniqueId);
+            } catch (err) {
+            }
+        }
+
         function refreshPlayers() {
             try {
                 if (!window.opener || !window.opener.game) return;
@@ -777,11 +833,13 @@ class UIManager {
                     var rowClass = b.shieldActive ? 'player-row shielded' : 'player-row';
                     var avatar = b.profilePictureUrl ? '<img class="avatar" style="filter:blur(' + blurPx + 'px)" src="' + esc(b.profilePictureUrl) + '" alt="" onerror="this.style.display=\\'none\\'">' : '';
                     var shield = b.shieldActive ? '<div class="shield">Shield: ' + Math.ceil(b.shieldTimer || 0) + 's</div>' : '';
+                    var deleteBtn = '<button class="delete-btn" type="button" data-id="' + esc(b.uniqueId) + '" title="Oyuncuyu arenadan sil">🗑️</button>';
 
                     html += '<div class="' + rowClass + '">';
                     html += '<div class="row-main">';
                     html += avatar;
                     html += '<div class="name">' + esc(b.nickname) + '</div>';
+                    html += deleteBtn;
                     html += '<div class="stats"><span class="atk">ATK ' + Math.ceil(b.attack || 0) + '</span><span class="hp">' + Math.ceil(hp) + '/' + maxHp + '</span></div>';
                     html += '</div>';
                     html += '<div class="bar"><div class="fill" style="width:' + hpPercent + '%;background:' + hpColor + '"></div></div>';
@@ -792,6 +850,17 @@ class UIManager {
             } catch (err) {
             }
         }
+
+        document.getElementById('playersRoot').addEventListener('click', function(event) {
+            var btn = event.target.closest('.delete-btn');
+            if (!btn) return;
+            event.preventDefault();
+            event.stopPropagation();
+            var uniqueId = String(btn.getAttribute('data-id') || '').trim();
+            if (!uniqueId) return;
+            removePlayer(uniqueId);
+            refreshPlayers();
+        });
 
         setInterval(refreshPlayers, 250);
         refreshPlayers();

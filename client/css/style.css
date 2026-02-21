@@ -952,6 +952,10 @@ body {
     margin-bottom: 0;
 }
 
+.setting-row.is-disabled {
+    opacity: 0.55;
+}
+
 .setting-label {
     display: flex;
     flex-direction: column;
@@ -1579,6 +1583,35 @@ body {
     align-items: center;
     gap: 8px;
     margin-bottom: 4px;
+}
+
+.player-delete-btn {
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 6px;
+    background: rgba(239, 68, 68, 0.12);
+    color: #ff9c9c;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s, background 0.2s, border-color 0.2s;
+}
+
+.player-row:hover .player-delete-btn,
+.player-row:focus-within .player-delete-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.player-delete-btn:hover {
+    background: rgba(239, 68, 68, 0.22);
+    border-color: rgba(239, 68, 68, 0.5);
 }
 
 .player-avatar {

@@ -856,7 +856,7 @@ body {
 }
 
 .settings-panel {
-    width: 580px;
+    width: min(880px, calc(100vw - 24px));
     max-height: 80vh;
     background: var(--bg-card);
     border: 1px solid var(--glass-border);

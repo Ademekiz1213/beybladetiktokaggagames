@@ -94,7 +94,7 @@ class SettingsPanel {
                             </div>
                             <div class="setting-row">
                                 <div class="setting-label">
-                                    <label>⚔️ Bazal Saldırı Gücü</label>
+                                    <label>⚔️ Başlangıç Saldırı Gücü</label>
                                     <span class="setting-hint">Çarpışma başına verilen hasar</span>
                                 </div>
                                 <input type="number" id="settingDefaultAttack" min="1" max="999" value="${this.giftConfig.defaultAttack}">
@@ -147,7 +147,7 @@ class SettingsPanel {
                             <div class="setting-row">
                                 <div class="setting-label">
                                     <label>👍 Beğeni Eşiği</label>
-                                    <span class="setting-hint">Spawn için gereken beğeni sayısı</span>
+                                    <span class="setting-hint">Oyuna katılım için gereken beğeni sayısı</span>
                                 </div>
                                 <input type="number" id="settingLikesPerSpawn" min="1" max="1000" value="${this.giftConfig.likesPerSpawn}">
                             </div>
@@ -340,7 +340,7 @@ class SettingsPanel {
                             <ul class="guide-list">
                                 <li>Yayinci(lar)i baglarsin.</li>
                                 <li>Izleyici etkilesimleri oyuna anlik yansir.</li>
-                                <li>Oyuncu toplari spawn olur, guclenir, carpisir.</li>
+                                <li>Oyuncu toplari oyuna katilir, guclenir, carpisir.</li>
                                 <li>Arena Fatihleri listesi kill sayisina gore siralanir.</li>
                             </ul>
                         </div>
@@ -353,7 +353,7 @@ class SettingsPanel {
                                 <li>Oyuna premium hesabinla giris yap.</li>
                                 <li>Ayarlar > Baglanti sekmesinden yayinci adlarini gir.</li>
                                 <li>BAGLAN butonuyla baglantiyi ac (birden fazla yayinci girebilirsin).</li>
-                                <li>Hediye ve begeniler geldikce oyuncular spawn olur veya guc kazanir.</li>
+                                <li>Hediye ve begeniler geldikce oyuncular oyuna katilir veya guc kazanir.</li>
                                 <li>Ayarlar > Hediyeler sekmesinden hangi hediyenin ne yapacagini belirle.</li>
                                 <li>Canli listeleri normal panelde veya ayri pencerede takip et.</li>
                             </ol>
@@ -391,7 +391,7 @@ class SettingsPanel {
                             <h3>Hediyeler Sekmesi</h3>
                             <ul class="guide-list">
                                 <li>Hediye adini yazmak yerine listeden gorseliyle secersin.</li>
-                                <li>Her hediyeye bir veya birden fazla efekt ekleyebilirsin: spawn, boyut, can, guc, kalkan.</li>
+                                <li>Her hediyeye bir veya birden fazla efekt ekleyebilirsin: oyuna katil, boyut, can, guc, kalkan.</li>
                                 <li>Sunucu yeni hediye gordugunde ad + gorsel kataloga kaydedilir ve tum yayincilarda kullanilabilir.</li>
                                 <li>Hediye Isimleri Sitesi butonu, dis rehber sayfasini yeni sekmede acar.</li>
                             </ul>
@@ -1065,7 +1065,7 @@ class SettingsPanel {
         let effectsHtml = effects.map((eff, idx) => `
             <div class="effect-item">
                 <select class="effect-type" data-idx="${idx}">
-                    <option value="spawn" ${eff.type === 'spawn' ? 'selected' : ''}>🆕 Spawn</option>
+                    <option value="spawn" ${eff.type === 'spawn' ? 'selected' : ''}>🆕 Oyuna Katıl</option>
                     <option value="size" ${eff.type === 'size' ? 'selected' : ''}>📏 Boyut</option>
                     <option value="hp" ${eff.type === 'hp' ? 'selected' : ''}>❤️ Can</option>
                     <option value="attack" ${eff.type === 'attack' ? 'selected' : ''}>💪 Güç</option>
@@ -1107,7 +1107,7 @@ class SettingsPanel {
             div.className = 'effect-item';
             div.innerHTML = `
                 <select class="effect-type" data-idx="${idx}">
-                    <option value="spawn">🆕 Spawn</option>
+                    <option value="spawn">🆕 Oyuna Katıl</option>
                     <option value="size">📏 Boyut</option>
                     <option value="hp">❤️ Can</option>
                     <option value="attack">💪 Güç</option>

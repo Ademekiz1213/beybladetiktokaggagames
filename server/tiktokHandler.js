@@ -83,8 +83,54 @@ class TikTokHandler {
         return '';
     }
 
+    _resolveRoomId(state) {
+        if (!state || typeof state !== 'object') return null;
+
+        const direct = state.roomId ?? state.room_id;
+        if (direct !== undefined && direct !== null && String(direct).trim() !== '') {
+            return String(direct);
+        }
+
+        const nested = state.roomInfo?.roomId ?? state.roomInfo?.room_id;
+        if (nested !== undefined && nested !== null && String(nested).trim() !== '') {
+            return String(nested);
+        }
+
+        return null;
+    }
+
+    _resolveErrorMessage(err, fallbackMessage = 'Bilinmeyen hata') {
+        if (!err) return fallbackMessage;
+
+        const messageCandidates = [
+            err.message,
+            err?.response?.data?.message,
+            err?.response?.data?.error,
+            err?.response?.statusText,
+            typeof err === 'string' ? err : null
+        ];
+
+        for (const candidate of messageCandidates) {
+            const normalized = String(candidate || '').trim();
+            if (normalized) return normalized;
+        }
+
+        return fallbackMessage;
+    }
+
     async connect() {
-        this.connection = new WebcastPushConnection(this.username);
+        if (this.connection && typeof this.connection.disconnect === 'function') {
+            try {
+                this.connection.disconnect();
+            } catch (disconnectError) {
+                console.warn(`[TikTok] Previous connection cleanup failed [${this.username}]:`, disconnectError?.message || disconnectError);
+            }
+        }
+
+        this.connection = new WebcastPushConnection(this.username, {
+            enableExtendedGiftInfo: true
+        });
+        this._setupEventListeners();
 
         this._emitStatus({
             connected: false,
@@ -93,30 +139,32 @@ class TikTokHandler {
 
         try {
             const state = await this.connection.connect();
+            const roomId = this._resolveRoomId(state);
             this.isConnected = true;
             this.hasEverConnected = true;
-            console.log(`[TikTok] Connected to ${this.username} | Room ID: ${state.roomId}`);
+            console.log(`[TikTok] Connected to ${this.username} | Room ID: ${roomId || 'unknown'}`);
 
             this._emitStatus({
                 connected: true,
                 connecting: false,
-                roomId: state.roomId
+                roomId
             });
-
-            this._setupEventListeners();
         } catch (err) {
             this.isConnected = false;
-            console.error('[TikTok] Connection failed:', err.message);
+            const errorMessage = this._resolveErrorMessage(err, 'Baglanti kurulamadi');
+            console.error('[TikTok] Connection failed:', errorMessage);
 
             this._emitStatus({
                 connected: false,
                 connecting: false,
-                error: err.message
+                error: errorMessage
             });
         }
     }
 
     _setupEventListeners() {
+        if (!this.connection) return;
+
         // Gift event
         this.connection.on('gift', (data) => {
             const ids = this._buildScopedIdentity(data);
@@ -242,20 +290,27 @@ class TikTokHandler {
         });
 
         // Disconnected
-        this.connection.on('disconnected', () => {
+        this.connection.on('disconnected', (reason) => {
             console.log(`[TikTok] Disconnected [${this.username}]`);
             this.isConnected = false;
+            const errorMessage = this._resolveErrorMessage(reason, 'Baglanti kesildi');
 
             this._emitStatus({
                 connected: false,
                 connecting: false,
-                error: 'Baglanti kesildi'
+                error: errorMessage
             });
         });
 
         // Error
         this.connection.on('error', (err) => {
-            console.error(`[TikTok] Error [${this.username}]:`, err.message);
+            const errorMessage = this._resolveErrorMessage(err, 'TikTok baglanti hatasi');
+            console.error(`[TikTok] Error [${this.username}]:`, errorMessage);
+            this._emitStatus({
+                connected: this.isConnected,
+                connecting: false,
+                error: errorMessage
+            });
         });
     }
 
@@ -263,11 +318,17 @@ class TikTokHandler {
         const silent = Boolean(options.silent);
 
         if (this.connection) {
-            this.connection.disconnect();
+            if (typeof this.connection.removeAllListeners === 'function') {
+                this.connection.removeAllListeners();
+            }
+            if (typeof this.connection.disconnect === 'function') {
+                this.connection.disconnect();
+            }
         }
 
         this.isConnected = false;
         this.likeCounters = {};
+        this.connection = null;
         console.log(`[TikTok] Disconnected manually [${this.username}]`);
 
         if (!silent) {

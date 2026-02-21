@@ -118,6 +118,29 @@
                     </form>
                 </section>
 
+                <section class="admin-panel">
+                    <div class="admin-panel-head">
+                        <h2>Ilk Giris Duyurusu</h2>
+                    </div>
+
+                    <form id="startupAnnouncementForm" class="admin-form">
+                        <label for="startupAnnouncementTitle">Baslik</label>
+                        <input id="startupAnnouncementTitle" name="title" type="text" maxlength="80" placeholder="Ornek: Onemli Bilgilendirme">
+
+                        <label for="startupAnnouncementMessage">Ilk giriste gosterilecek mesaj</label>
+                        <textarea id="startupAnnouncementMessage" name="message" class="admin-textarea" maxlength="500" placeholder="Ornek: Yeni sezon basladi. Ayarlari kontrol edip yayina oyle girin."></textarea>
+
+                        <p id="startupAnnouncementStatus" class="admin-startup-status">Aktif ilk giris duyurusu yok.</p>
+                        <div class="admin-announcement-meta">
+                            <span>Maksimum 500 karakter</span>
+                        </div>
+                        <div class="admin-actions">
+                            <button id="saveStartupAnnouncementBtn" class="btn btn-primary" type="submit">Ilk Giris Duyurusunu Kaydet</button>
+                            <button id="disableStartupAnnouncementBtn" class="btn btn-danger" type="button">Duyuruyu Kapat</button>
+                        </div>
+                    </form>
+                </section>
+
                 <section class="admin-panel admin-panel-wide">
                     <div class="admin-panel-head">
                         <h2>Canli Bagli Yayincilar</h2>

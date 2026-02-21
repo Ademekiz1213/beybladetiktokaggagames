@@ -25,8 +25,12 @@ class UIManager {
         this._createScoreboard();
         this._createFeedToggle();
         this._createAnnouncementBanner();
+        this._createStartupAnnouncementModal();
         this._bindEvents();
         this._setDisconnectedState();
+
+        window.addEventListener('auth-ready', () => this._checkStartupAnnouncement());
+        this._checkStartupAnnouncement();
     }
 
     _createPlayerPanel() {
@@ -100,6 +104,23 @@ class UIManager {
         this.announcementHideTimer = null;
     }
 
+    _createStartupAnnouncementModal() {
+        this.startupAnnouncementOverlay = document.createElement('div');
+        this.startupAnnouncementOverlay.className = 'startup-announcement-overlay';
+        this.startupAnnouncementOverlay.style.display = 'none';
+        this.startupAnnouncementOverlay.innerHTML = `
+            <div class="startup-announcement-panel">
+                <div class="startup-announcement-header">
+                    <h3 id="startupAnnouncementTitleText">📢 Duyuru</h3>
+                    <button id="startupAnnouncementCloseBtn" type="button" class="startup-announcement-close">✕</button>
+                </div>
+                <div id="startupAnnouncementMessageText" class="startup-announcement-message"></div>
+                <div id="startupAnnouncementMetaText" class="startup-announcement-meta"></div>
+            </div>
+        `;
+        document.body.appendChild(this.startupAnnouncementOverlay);
+    }
+
     _bindEvents() {
         // Connect button
         this.connectBtn?.addEventListener('click', () => this._onConnect());
@@ -117,6 +138,9 @@ class UIManager {
         // Test mode
         this.testModeBtn?.addEventListener('click', () => this._sendTestEvent());
         this.playerPanelOpenBtn?.addEventListener('click', () => this.openActivePlayersPopup());
+        this.startupAnnouncementOverlay?.querySelector('#startupAnnouncementCloseBtn')?.addEventListener('click', () => {
+            this._dismissStartupAnnouncement();
+        });
 
         // Socket events
         window.socketManager.on('tiktok-status', (data) => this._handleStatus(data));
@@ -350,6 +374,126 @@ class UIManager {
         this.announcementHideTimer = window.setTimeout(() => {
             this.announcementBanner.classList.remove('show');
         }, 9000);
+    }
+
+    async _buildAuthHeaders(user) {
+        const headers = {};
+
+        if (user?.email) {
+            headers['x-user-email'] = user.email;
+        }
+        if (user?.uid) {
+            headers['x-user-uid'] = user.uid;
+        }
+
+        try {
+            const token = await user.getIdToken(false);
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+        } catch (error) {
+            console.warn('[UI] Could not load Firebase token for startup announcement:', error);
+        }
+
+        return headers;
+    }
+
+    _resolveSessionUserKey(user) {
+        const email = String(user?.email || '').trim().toLowerCase();
+        if (email) return `email:${email}`;
+
+        const uid = String(user?.uid || '').trim();
+        if (uid) return `uid:${uid}`;
+
+        return '';
+    }
+
+    _getStartupAnnouncementSeenStorageKey(userKey) {
+        return `beyblade_startup_announcement_seen_${userKey}`;
+    }
+
+    async _checkStartupAnnouncement() {
+        const user = window.authSession?.user;
+        if (!user || this._startupAnnouncementLoading) return;
+
+        const userKey = this._resolveSessionUserKey(user);
+        if (!userKey) return;
+
+        this._startupAnnouncementLoading = true;
+        try {
+            const response = await fetch('/api/startup-announcement', {
+                method: 'GET',
+                headers: await this._buildAuthHeaders(user)
+            });
+
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload?.ok === false) {
+                return;
+            }
+
+            const announcement = payload?.announcement;
+            if (!announcement || !announcement.id || !announcement.message) {
+                this.startupAnnouncementOverlay.style.display = 'none';
+                return;
+            }
+
+            const seenKey = this._getStartupAnnouncementSeenStorageKey(userKey);
+            let seenAnnouncementId = '';
+            try {
+                seenAnnouncementId = String(localStorage.getItem(seenKey) || '');
+            } catch {
+                seenAnnouncementId = '';
+            }
+            if (seenAnnouncementId === String(announcement.id)) {
+                this.startupAnnouncementOverlay.style.display = 'none';
+                return;
+            }
+
+            const titleEl = this.startupAnnouncementOverlay.querySelector('#startupAnnouncementTitleText');
+            const messageEl = this.startupAnnouncementOverlay.querySelector('#startupAnnouncementMessageText');
+            const metaEl = this.startupAnnouncementOverlay.querySelector('#startupAnnouncementMetaText');
+
+            if (titleEl) {
+                titleEl.textContent = String(announcement.title || 'Duyuru').trim() || 'Duyuru';
+            }
+            if (messageEl) {
+                messageEl.textContent = String(announcement.message || '').trim();
+            }
+            if (metaEl) {
+                const updatedLabel = announcement.updatedAt
+                    ? new Date(announcement.updatedAt).toLocaleString()
+                    : '';
+                const byName = String(announcement.updatedByName || '').trim();
+                const metaParts = [];
+                if (byName) metaParts.push(byName);
+                if (updatedLabel && updatedLabel !== 'Invalid Date') metaParts.push(updatedLabel);
+                metaEl.textContent = metaParts.join(' • ');
+            }
+
+            this.startupAnnouncementOverlay.dataset.seenStorageKey = seenKey;
+            this.startupAnnouncementOverlay.dataset.announcementId = String(announcement.id);
+            this.startupAnnouncementOverlay.style.display = 'flex';
+        } catch (error) {
+            console.warn('[UI] Startup announcement fetch failed:', error);
+        } finally {
+            this._startupAnnouncementLoading = false;
+        }
+    }
+
+    _dismissStartupAnnouncement() {
+        if (!this.startupAnnouncementOverlay) return;
+
+        const seenStorageKey = String(this.startupAnnouncementOverlay.dataset.seenStorageKey || '').trim();
+        const announcementId = String(this.startupAnnouncementOverlay.dataset.announcementId || '').trim();
+        if (seenStorageKey && announcementId) {
+            try {
+                localStorage.setItem(seenStorageKey, announcementId);
+            } catch {
+                // ignore storage quota/security errors
+            }
+        }
+
+        this.startupAnnouncementOverlay.style.display = 'none';
     }
 
     updatePlayerCount(count) {

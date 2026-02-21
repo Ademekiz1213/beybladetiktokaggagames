@@ -760,6 +760,78 @@ body {
     transform: translateY(-1px);
 }
 
+/* ===== STARTUP ANNOUNCEMENT ===== */
+.startup-announcement-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 230;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    animation: fadeIn 0.2s ease;
+}
+
+.startup-announcement-panel {
+    width: min(560px, calc(100vw - 22px));
+    max-height: 84vh;
+    overflow: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-glow), 0 24px 42px rgba(0, 0, 0, 0.45);
+    padding: 16px 18px 14px;
+}
+
+.startup-announcement-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.startup-announcement-header h3 {
+    margin: 0;
+    color: #ffe39a;
+    font-family: var(--font-display);
+    font-size: 15px;
+    letter-spacing: 1px;
+}
+
+.startup-announcement-close {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.startup-announcement-close:hover {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #ffb4b4;
+}
+
+.startup-announcement-message {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.startup-announcement-meta {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
 /* ===== SETTINGS OVERLAY ===== */
 .settings-overlay {
     position: fixed;
@@ -2422,6 +2494,11 @@ body {
 
     .guide-body {
         padding: 14px 16px;
+    }
+
+    .startup-announcement-panel {
+        width: calc(100vw - 12px);
+        padding: 14px 14px 12px;
     }
 
     .admin-announcement-banner {

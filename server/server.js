@@ -2,6 +2,7 @@
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 const TikTokHandler = require('./tiktokHandler');
 const { registerPremiumRoutes, resolveRequestUser, isAdminEmail, resolveAdminSenderName } = require('./premiumService');
 const { GiftCatalogService } = require('./giftCatalogService');
@@ -41,6 +42,84 @@ const ENABLE_TIKTOK_SHARE_EVENTS = String(process.env.ENABLE_TIKTOK_SHARE_EVENTS
 const liveSocketStates = new Map(); // socketId -> live connection snapshot
 const globalConnectedStreamerCount = new Map(); // streamerKey -> connected handler count
 const giftCatalogService = new GiftCatalogService();
+const STARTUP_ANNOUNCEMENT_FILE = path.join(__dirname, 'data', 'startup-announcement.json');
+const STARTUP_ANNOUNCEMENT_MAX_TITLE = envInt('STARTUP_ANNOUNCEMENT_MAX_TITLE', 80);
+const STARTUP_ANNOUNCEMENT_MAX_MESSAGE = envInt('STARTUP_ANNOUNCEMENT_MAX_MESSAGE', 500);
+const DEFAULT_STARTUP_ANNOUNCEMENT_STATE = {
+    version: 1,
+    updatedAt: null,
+    active: false,
+    announcement: null
+};
+
+function sanitizeStartupAnnouncementState(value) {
+    const state = value && typeof value === 'object' ? value : {};
+    const announcement = state.announcement && typeof state.announcement === 'object'
+        ? state.announcement
+        : null;
+
+    return {
+        ...DEFAULT_STARTUP_ANNOUNCEMENT_STATE,
+        ...state,
+        active: Boolean(state.active),
+        announcement: announcement ? {
+            id: String(announcement.id || ''),
+            title: String(announcement.title || ''),
+            message: String(announcement.message || ''),
+            updatedAt: announcement.updatedAt || null,
+            updatedByEmail: announcement.updatedByEmail || null,
+            updatedByName: announcement.updatedByName || null
+        } : null
+    };
+}
+
+async function ensureStartupAnnouncementFile() {
+    await fs.promises.mkdir(path.dirname(STARTUP_ANNOUNCEMENT_FILE), { recursive: true });
+
+    try {
+        await fs.promises.access(STARTUP_ANNOUNCEMENT_FILE, fs.constants.F_OK);
+    } catch {
+        await fs.promises.writeFile(
+            STARTUP_ANNOUNCEMENT_FILE,
+            JSON.stringify(DEFAULT_STARTUP_ANNOUNCEMENT_STATE, null, 2),
+            'utf8'
+        );
+    }
+}
+
+async function readStartupAnnouncementState() {
+    await ensureStartupAnnouncementFile();
+    try {
+        const raw = await fs.promises.readFile(STARTUP_ANNOUNCEMENT_FILE, 'utf8');
+        return sanitizeStartupAnnouncementState(JSON.parse(raw));
+    } catch {
+        return { ...DEFAULT_STARTUP_ANNOUNCEMENT_STATE };
+    }
+}
+
+async function writeStartupAnnouncementState(state) {
+    const nextState = sanitizeStartupAnnouncementState(state);
+    nextState.updatedAt = new Date().toISOString();
+
+    const tmpPath = `${STARTUP_ANNOUNCEMENT_FILE}.tmp`;
+    await fs.promises.writeFile(tmpPath, JSON.stringify(nextState, null, 2), 'utf8');
+    await fs.promises.rename(tmpPath, STARTUP_ANNOUNCEMENT_FILE);
+}
+
+function toPublicStartupAnnouncement(state) {
+    const announcement = state?.announcement;
+    if (!state?.active || !announcement || !String(announcement.message || '').trim()) {
+        return null;
+    }
+
+    return {
+        id: String(announcement.id || ''),
+        title: String(announcement.title || '').trim() || 'Duyuru',
+        message: String(announcement.message || '').trim(),
+        updatedAt: announcement.updatedAt || null,
+        updatedByName: announcement.updatedByName || null
+    };
+}
 
 // Serve client files
 app.use(express.json({ limit: '128kb' }));
@@ -147,6 +226,131 @@ app.post('/api/admin/announce', async (req, res) => {
         });
     } catch (error) {
         console.error('[Admin] /announce failed:', error);
+        return res.status(500).json({ ok: false, error: 'Internal error' });
+    }
+});
+
+app.get('/api/admin/startup-announcement', async (req, res) => {
+    try {
+        const user = await resolveRequestUser(req);
+        if (!user) {
+            return res.status(401).json({ ok: false, error: 'Unauthorized' });
+        }
+
+        if (!isAdminEmail(user.email)) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+
+        const state = await readStartupAnnouncementState();
+        return res.json({
+            ok: true,
+            active: Boolean(state.active),
+            announcement: state.announcement || null
+        });
+    } catch (error) {
+        console.error('[Admin] /startup-announcement get failed:', error);
+        return res.status(500).json({ ok: false, error: 'Internal error' });
+    }
+});
+
+app.post('/api/admin/startup-announcement', async (req, res) => {
+    try {
+        const user = await resolveRequestUser(req);
+        if (!user) {
+            return res.status(401).json({ ok: false, error: 'Unauthorized' });
+        }
+
+        if (!isAdminEmail(user.email)) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+
+        const title = String(req.body?.title || '').trim();
+        const message = String(req.body?.message || '').trim();
+
+        if (!message) {
+            return res.status(400).json({ ok: false, error: 'Startup announcement message is required' });
+        }
+
+        if (title.length > STARTUP_ANNOUNCEMENT_MAX_TITLE) {
+            return res.status(400).json({
+                ok: false,
+                error: `Startup announcement title is too long (max ${STARTUP_ANNOUNCEMENT_MAX_TITLE} chars)`
+            });
+        }
+
+        if (message.length > STARTUP_ANNOUNCEMENT_MAX_MESSAGE) {
+            return res.status(400).json({
+                ok: false,
+                error: `Startup announcement message is too long (max ${STARTUP_ANNOUNCEMENT_MAX_MESSAGE} chars)`
+            });
+        }
+
+        const sentByName = await resolveAdminSenderName(user.email);
+        const state = await readStartupAnnouncementState();
+        const updatedAt = new Date().toISOString();
+
+        state.active = true;
+        state.announcement = {
+            id: `startup-${Date.now()}`,
+            title: title || 'Sistem Duyurusu',
+            message,
+            updatedAt,
+            updatedByEmail: user.email,
+            updatedByName: sentByName || user.email
+        };
+
+        await writeStartupAnnouncementState(state);
+
+        return res.json({
+            ok: true,
+            active: true,
+            announcement: state.announcement
+        });
+    } catch (error) {
+        console.error('[Admin] /startup-announcement post failed:', error);
+        return res.status(500).json({ ok: false, error: 'Internal error' });
+    }
+});
+
+app.delete('/api/admin/startup-announcement', async (req, res) => {
+    try {
+        const user = await resolveRequestUser(req);
+        if (!user) {
+            return res.status(401).json({ ok: false, error: 'Unauthorized' });
+        }
+
+        if (!isAdminEmail(user.email)) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+
+        const state = await readStartupAnnouncementState();
+        state.active = false;
+        await writeStartupAnnouncementState(state);
+
+        return res.json({
+            ok: true,
+            active: false
+        });
+    } catch (error) {
+        console.error('[Admin] /startup-announcement delete failed:', error);
+        return res.status(500).json({ ok: false, error: 'Internal error' });
+    }
+});
+
+app.get('/api/startup-announcement', async (req, res) => {
+    try {
+        const user = await resolveRequestUser(req);
+        if (!user) {
+            return res.status(401).json({ ok: false, error: 'Unauthorized' });
+        }
+
+        const state = await readStartupAnnouncementState();
+        return res.json({
+            ok: true,
+            announcement: toPublicStartupAnnouncement(state)
+        });
+    } catch (error) {
+        console.error('[Startup announcement] /api/startup-announcement failed:', error);
         return res.status(500).json({ ok: false, error: 'Internal error' });
     }
 });

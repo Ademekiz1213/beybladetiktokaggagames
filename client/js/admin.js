@@ -199,6 +199,32 @@ function renderLiveConnections(payload) {
     }).join('');
 }
 
+function renderStartupAnnouncement(payload) {
+    const titleInput = document.getElementById('startupAnnouncementTitle');
+    const messageInput = document.getElementById('startupAnnouncementMessage');
+    const statusEl = document.getElementById('startupAnnouncementStatus');
+    if (!titleInput || !messageInput || !statusEl) return;
+
+    const active = Boolean(payload?.active);
+    const announcement = payload?.announcement && typeof payload.announcement === 'object'
+        ? payload.announcement
+        : null;
+
+    titleInput.value = String(announcement?.title || '');
+    messageInput.value = String(announcement?.message || '');
+
+    statusEl.classList.remove('is-on', 'is-off');
+    if (active && announcement) {
+        const updatedLabel = formatDate(announcement.updatedAt);
+        statusEl.textContent = `Aktif. Son guncelleme: ${updatedLabel}`;
+        statusEl.classList.add('is-on');
+        return;
+    }
+
+    statusEl.textContent = 'Aktif ilk giris duyurusu yok.';
+    statusEl.classList.add('is-off');
+}
+
 function setAdminReadonlyState(readonly) {
     const selector = [
         '#refreshCodesBtn',
@@ -208,11 +234,15 @@ function setAdminReadonlyState(readonly) {
         '#grantBtn',
         '#revokeBtn',
         '#sendAnnouncementBtn',
+        '#saveStartupAnnouncementBtn',
+        '#disableStartupAnnouncementBtn',
         '#saveAnnouncementNameBtn',
         '#codeForm input',
         '#grantForm input',
         '#announceDisplayName',
-        '#announceForm textarea'
+        '#announceForm textarea',
+        '#startupAnnouncementForm input',
+        '#startupAnnouncementForm textarea'
     ].join(', ');
 
     document.querySelectorAll(selector).forEach((element) => {
@@ -294,6 +324,11 @@ async function initAdminPage() {
     async function refreshLiveConnections() {
         const payload = await fetchApi('/api/admin/live-streamers', { user });
         renderLiveConnections(payload);
+    }
+
+    async function refreshStartupAnnouncement() {
+        const payload = await fetchApi('/api/admin/startup-announcement', { user });
+        renderStartupAnnouncement(payload);
     }
 
     async function refreshAdminProfile() {
@@ -545,8 +580,89 @@ async function initAdminPage() {
         }
     });
 
+    document.getElementById('startupAnnouncementForm')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setMessage('');
+
+        const titleInput = document.getElementById('startupAnnouncementTitle');
+        const messageInput = document.getElementById('startupAnnouncementMessage');
+        const title = String(titleInput?.value || '').trim();
+        const message = String(messageInput?.value || '').trim();
+
+        if (!message) {
+            setMessage('Ilk giris duyurusu mesaji bos olamaz.', 'error');
+            return;
+        }
+
+        if (title.length > 80) {
+            setMessage('Ilk giris duyurusu basligi en fazla 80 karakter olabilir.', 'error');
+            return;
+        }
+
+        if (message.length > 500) {
+            setMessage('Ilk giris duyurusu mesaji en fazla 500 karakter olabilir.', 'error');
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveStartupAnnouncementBtn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Kaydediliyor...';
+        }
+
+        try {
+            await fetchApi('/api/admin/startup-announcement', {
+                method: 'POST',
+                user,
+                body: { title, message }
+            });
+
+            setMessage('Ilk giris duyurusu kaydedildi. Kullanicilar oyuna girdiginde bir kez gorecek.', 'success');
+            await refreshStartupAnnouncement();
+        } catch (error) {
+            setMessage(error.message || 'Ilk giris duyurusu kaydedilemedi.', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Ilk Giris Duyurusunu Kaydet';
+            }
+        }
+    });
+
+    document.getElementById('disableStartupAnnouncementBtn')?.addEventListener('click', async () => {
+        setMessage('');
+
+        const disableBtn = document.getElementById('disableStartupAnnouncementBtn');
+        if (disableBtn) {
+            disableBtn.disabled = true;
+            disableBtn.textContent = 'Kapatiliyor...';
+        }
+
+        try {
+            await fetchApi('/api/admin/startup-announcement', {
+                method: 'DELETE',
+                user
+            });
+            setMessage('Ilk giris duyurusu kapatildi.', 'success');
+            await refreshStartupAnnouncement();
+        } catch (error) {
+            setMessage(error.message || 'Ilk giris duyurusu kapatilamadi.', 'error');
+        } finally {
+            if (disableBtn) {
+                disableBtn.disabled = false;
+                disableBtn.textContent = 'Duyuruyu Kapat';
+            }
+        }
+    });
+
     try {
-        await Promise.all([refreshCodes(), refreshAccounts(), refreshLiveConnections(), refreshAdminProfile()]);
+        await Promise.all([
+            refreshCodes(),
+            refreshAccounts(),
+            refreshLiveConnections(),
+            refreshAdminProfile(),
+            refreshStartupAnnouncement()
+        ]);
 
         liveRefreshTimer = window.setInterval(() => {
             refreshLiveConnections().catch((error) => {

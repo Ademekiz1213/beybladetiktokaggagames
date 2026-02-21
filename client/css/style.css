@@ -708,6 +708,27 @@ body {
     border-color: rgba(250, 204, 21, 0.3);
 }
 
+.btn-join-toggle {
+    left: 148px;
+    color: var(--accent-green);
+}
+
+.btn-join-toggle:hover {
+    background: rgba(34, 214, 122, 0.14);
+    border-color: rgba(34, 214, 122, 0.35);
+}
+
+.btn-join-toggle.is-closed {
+    color: #ffb4b4;
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.btn-join-toggle.is-closed:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.45);
+}
+
 .btn-settings {
     position: fixed;
     top: 16px;
@@ -2521,6 +2542,17 @@ body {
     .btn-feed-toggle {
         top: 8px;
         right: 112px;
+    }
+
+    .btn-test {
+        bottom: 8px;
+        left: 8px;
+        padding: 9px 12px;
+        font-size: 12px;
+    }
+
+    .btn-join-toggle {
+        left: 118px;
     }
 
     .guide-panel {

@@ -60,6 +60,7 @@ class Game {
         this.lastTime = performance.now();
         this.randomForceTimer = 0;
         this.pendingGiftQueue = [];
+        this.newEntrantsEnabled = true;
 
         // Bind events
         this._bindTikTokEvents();
@@ -469,7 +470,20 @@ class Game {
         return this.beyblades.find(b => b.uniqueId === uniqueId && b.alive);
     }
 
+    isNewEntrantsEnabled() {
+        return this.newEntrantsEnabled !== false;
+    }
+
+    setNewEntrantsEnabled(enabled) {
+        this.newEntrantsEnabled = enabled !== false;
+        return this.newEntrantsEnabled;
+    }
+
     _spawnBeyblade(data) {
+        if (!this.isNewEntrantsEnabled()) {
+            return null;
+        }
+
         // Random position inside arena
         let x, y;
         if (this.arena.shape === 'rectangle') {

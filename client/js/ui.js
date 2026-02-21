@@ -15,6 +15,7 @@ class UIManager {
         this.activeCount = document.getElementById('activeCount');
 
         this.testModeBtn = document.getElementById('testModeBtn');
+        this.joinToggleBtn = document.getElementById('joinToggleBtn');
 
         this.maxFeedItems = 30;
         this.eventFeedVisible = true;
@@ -137,6 +138,7 @@ class UIManager {
 
         // Test mode
         this.testModeBtn?.addEventListener('click', () => this._sendTestEvent());
+        this.joinToggleBtn?.addEventListener('click', () => this._toggleNewEntrants());
         this.playerPanelOpenBtn?.addEventListener('click', () => this.openActivePlayersPopup());
         this.startupAnnouncementOverlay?.querySelector('#startupAnnouncementCloseBtn')?.addEventListener('click', () => {
             this._dismissStartupAnnouncement();
@@ -214,12 +216,16 @@ class UIManager {
         this.eventFeed.style.display = this.eventFeedVisible ? 'block' : 'none';
         this.playerCount.style.display = 'flex';
         this.testModeBtn.style.display = 'block';
+        if (this.joinToggleBtn) {
+            this.joinToggleBtn.style.display = 'block';
+        }
         this.playerPanel.style.display = 'block';
         this.scoreboardPanel.style.display = 'block';
         this.feedToggleBtn.style.display = 'flex';
         if (this.disconnectBtn) {
             this.disconnectBtn.disabled = false;
         }
+        this._syncJoinToggleBtn();
         this._updateConnectionStateText();
     }
 
@@ -227,6 +233,9 @@ class UIManager {
         this.eventFeed.style.display = 'none';
         this.playerCount.style.display = 'none';
         this.testModeBtn.style.display = 'none';
+        if (this.joinToggleBtn) {
+            this.joinToggleBtn.style.display = 'none';
+        }
         this.playerPanel.style.display = 'none';
         this.scoreboardPanel.style.display = 'none';
         this.feedToggleBtn.style.display = 'none';
@@ -255,6 +264,36 @@ class UIManager {
 
         this.connectionStateText.textContent = 'Bagli degil';
         this.connectionStateText.classList.remove('is-connected', 'is-pending');
+    }
+
+    _toggleNewEntrants() {
+        if (!window.game || typeof window.game.setNewEntrantsEnabled !== 'function') return;
+
+        const current = typeof window.game.isNewEntrantsEnabled === 'function'
+            ? window.game.isNewEntrantsEnabled()
+            : true;
+        const next = !current;
+        window.game.setNewEntrantsEnabled(next);
+        this._syncJoinToggleBtn();
+
+        const message = next
+            ? '🟢 Arenaya yeni beyblade girisi acildi'
+            : '⛔ Arenaya yeni beyblade girisi kapatildi';
+        this._addFeedItem('', 'Sistem', `<span class="follow-action">${message}</span>`);
+    }
+
+    _syncJoinToggleBtn() {
+        if (!this.joinToggleBtn) return;
+
+        const enabled = !window.game || typeof window.game.isNewEntrantsEnabled !== 'function'
+            ? true
+            : window.game.isNewEntrantsEnabled();
+
+        this.joinToggleBtn.textContent = enabled ? '🟢 Giris Acik' : '⛔ Giris Kapali';
+        this.joinToggleBtn.title = enabled
+            ? 'Yeni beyblade girisini kapat'
+            : 'Yeni beyblade girisini ac';
+        this.joinToggleBtn.classList.toggle('is-closed', !enabled);
     }
 
     _setConnectLoading(isLoading) {

@@ -315,6 +315,17 @@ class Beyblade {
         ctx.roundRect(barX, barY, barWidth * hpRatio, barHeight, 2);
         ctx.fill();
         ctx.shadowBlur = 0;
+
+        // Numeric HP text under the bar
+        const hpText = `${Math.max(0, Math.ceil(this.hp))}/${Math.max(1, Math.ceil(this.maxHp))}`;
+        ctx.font = `bold ${Math.max(9, r * 0.2)}px Inter`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(5, 8, 18, 0.9)';
+        ctx.fillStyle = 'rgba(235, 244, 255, 0.95)';
+        ctx.strokeText(hpText, 0, barY + barHeight + 3);
+        ctx.fillText(hpText, 0, barY + barHeight + 3);
     }
 
     _easeOutBack(t) {

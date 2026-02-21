@@ -5,6 +5,7 @@ class GiftConfig {
         this.likesPerSpawn = 50;
         this.likeHealAmount = 10;
         this.enableRandomLikeBonus = true;
+        this.followSpawnEnabled = true;
         this.defaultHp = 200;
         this.defaultAttack = 10;
         this.defaultSize = 1;
@@ -98,6 +99,7 @@ class GiftConfig {
             likesPerSpawn: this.likesPerSpawn,
             likeHealAmount: this.likeHealAmount,
             enableRandomLikeBonus: this.enableRandomLikeBonus,
+            followSpawnEnabled: this.followSpawnEnabled,
             defaultHp: this.defaultHp,
             defaultAttack: this.defaultAttack,
             defaultSize: this.defaultSize,
@@ -117,6 +119,7 @@ class GiftConfig {
         if (data.likesPerSpawn !== undefined) this.likesPerSpawn = data.likesPerSpawn;
         if (data.likeHealAmount !== undefined) this.likeHealAmount = data.likeHealAmount;
         if (data.enableRandomLikeBonus !== undefined) this.enableRandomLikeBonus = Boolean(data.enableRandomLikeBonus);
+        if (data.followSpawnEnabled !== undefined) this.followSpawnEnabled = Boolean(data.followSpawnEnabled);
         if (data.defaultHp !== undefined) this.defaultHp = data.defaultHp;
         if (data.defaultAttack !== undefined) this.defaultAttack = data.defaultAttack;
         if (data.defaultSize !== undefined) this.defaultSize = data.defaultSize;

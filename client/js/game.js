@@ -36,6 +36,9 @@ class Game {
 
         // Like accumulators
         this.likeAccumulators = {}; // uniqueId -> count
+        this.followJoinHistory = {}; // uniqueId(lowercase) -> last follow reward timestamp
+        this.followJoinCooldownMs = 6 * 60 * 60 * 1000; // 6h anti-spam window
+        this._loadFollowJoinHistory();
 
         // Screen shake
         this.screenShake = { x: 0, y: 0, intensity: 0 };
@@ -346,6 +349,16 @@ class Game {
     }
 
     _handleFollow(data) {
+        if (this.giftConfig.followSpawnEnabled === false) {
+            return;
+        }
+
+        const followKey = this._normalizeFollowKey(data?.uniqueId);
+        if (!followKey) return;
+        if (!this._consumeFollowJoinReward(followKey)) {
+            return;
+        }
+
         // Follow = free spawn (if not already in arena)
         const existingBlade = this._findBeyblade(data.uniqueId);
         if (!existingBlade || !existingBlade.alive) {
@@ -354,7 +367,62 @@ class Game {
         } else {
             // Give a small HP bonus
             existingBlade.addHp(15);
-            this.effects.spawnUpgradeEffect(existingBlade.x, existingBlade.y, `✅ +15 HP`, '#22d67a');
+            this.effects.spawnUpgradeEffect(existingBlade.x, existingBlade.y, 'FOLLOW +15 HP', '#22d67a');
+        }
+    }
+
+    _normalizeFollowKey(uniqueId) {
+        return String(uniqueId || '').trim().toLowerCase();
+    }
+
+    _consumeFollowJoinReward(followKey) {
+        const now = Date.now();
+        this._pruneFollowJoinHistory(now);
+
+        const key = this._normalizeFollowKey(followKey);
+        if (!key) return false;
+
+        const previousTs = Number(this.followJoinHistory[key] || 0);
+        if (Number.isFinite(previousTs) && previousTs > 0 && (now - previousTs) < this.followJoinCooldownMs) {
+            return false;
+        }
+
+        this.followJoinHistory[key] = now;
+
+        // Keep map bounded to avoid unlimited growth.
+        const entries = Object.entries(this.followJoinHistory);
+        if (entries.length > 5000) {
+            entries.sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0));
+            this.followJoinHistory = Object.fromEntries(entries.slice(0, 3000));
+        }
+
+        this._saveFollowJoinHistory();
+        return true;
+    }
+
+    _pruneFollowJoinHistory(now = Date.now()) {
+        const history = this.followJoinHistory || {};
+        const cutoff = now - this.followJoinCooldownMs;
+        let changed = false;
+        const next = {};
+
+        for (const [key, rawTs] of Object.entries(history)) {
+            const normalizedKey = this._normalizeFollowKey(key);
+            const ts = Number(rawTs);
+            if (!normalizedKey || !Number.isFinite(ts) || ts <= 0) {
+                changed = true;
+                continue;
+            }
+            if (ts < cutoff) {
+                changed = true;
+                continue;
+            }
+            next[normalizedKey] = ts;
+        }
+
+        if (changed) {
+            this.followJoinHistory = next;
+            this._saveFollowJoinHistory();
         }
     }
 
@@ -939,6 +1007,33 @@ class Game {
         } catch (e) { /* ignore */ }
     }
 
+    _saveFollowJoinHistory() {
+        try {
+            localStorage.setItem('beyblade_follow_join_history', JSON.stringify(this.followJoinHistory || {}));
+        } catch (e) { /* ignore */ }
+    }
+
+    _loadFollowJoinHistory() {
+        try {
+            const saved = localStorage.getItem('beyblade_follow_join_history');
+            if (!saved) {
+                this.followJoinHistory = {};
+                return;
+            }
+
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object') {
+                this.followJoinHistory = parsed;
+            } else {
+                this.followJoinHistory = {};
+            }
+        } catch (e) {
+            this.followJoinHistory = {};
+        }
+
+        this._pruneFollowJoinHistory(Date.now());
+    }
+
     adjustScore(uniqueId, delta) {
         const current = this.scores[uniqueId] || 0;
         const newVal = Math.max(0, current + delta);
@@ -961,4 +1056,5 @@ class Game {
 }
 
 window.Game = Game;
+
 

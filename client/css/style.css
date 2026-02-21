@@ -1764,10 +1764,12 @@ body {
     padding: 0 16px;
     gap: 4px;
     background: rgba(0, 0, 0, 0.15);
+    overflow-x: auto;
+    scrollbar-width: thin;
 }
 
 .tab-btn {
-    flex: 1;
+    flex: 0 0 auto;
     padding: 12px 8px;
     background: none;
     border: none;
@@ -1779,6 +1781,16 @@ body {
     cursor: pointer;
     transition: color 0.2s, border-color 0.2s, background 0.2s;
     border-radius: 8px 8px 0 0;
+    white-space: nowrap;
+}
+
+.settings-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.settings-tabs::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
 }
 
 .tab-btn:hover {

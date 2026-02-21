@@ -4,7 +4,7 @@ class SettingsPanel {
         this.giftConfig = giftConfig;
         this.isOpen = false;
         this.guideOpen = false;
-        this.activeTab = 'general';
+        this.activeTab = 'connection';
         this.activeGuideTab = 'overview';
         this.giftCatalog = this._buildGiftCatalog();
         this._giftPickerTargetRow = null;
@@ -44,15 +44,18 @@ class SettingsPanel {
                     <button class="settings-close">✕</button>
                 </div>
                 <div class="settings-tabs">
-                    <button class="tab-btn active" data-tab="general">🎮 Genel</button>
+                    <button class="tab-btn active" data-tab="connection">📡 Baglanti</button>
+                    <button class="tab-btn" data-tab="battle">⚔️ Oyun</button>
+                    <button class="tab-btn" data-tab="interaction">💜 Etkilesim</button>
+                    <button class="tab-btn" data-tab="audio">🔊 Ses</button>
                     <button class="tab-btn" data-tab="skins">🎨 Görünüm</button>
                     <button class="tab-btn" data-tab="gifts">🎁 Hediyeler</button>
                     <button class="tab-btn" data-tab="windows">🪟 Pencereler</button>
                     <button class="tab-btn" data-tab="compliance">⚖️ Ihlal Koruma</button>
                 </div>
                 <div class="settings-body">
-                    <!-- TAB: GENERAL -->
-                    <div class="tab-content active" data-tab="general">
+                    <!-- TAB: CONNECTION -->
+                    <div class="tab-content active" data-tab="connection">
                         <div class="settings-section">
                             <h3>📡 Yayinci Baglanti</h3>
                             <div class="connection-settings-card">
@@ -76,6 +79,10 @@ class SettingsPanel {
                                 <div id="settingsConnectError" class="error-message settings-connect-error" style="display:none;"></div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- TAB: BATTLE -->
+                    <div class="tab-content" data-tab="battle">
                         <div class="settings-section">
                             <h3>⚔️ Top Ayarlari</h3>
                             <div class="setting-row">
@@ -123,7 +130,18 @@ class SettingsPanel {
                                 </div>
                                 <input type="number" id="settingShieldDuration" min="1" max="60" value="${this.giftConfig.defaultShieldDuration}">
                             </div>
+                            <div class="setting-row">
+                                <div class="setting-label">
+                                    <label>🏆 Kazanan Geri Sayim</label>
+                                    <span class="setting-hint">Son 1 kisi kaldiginda baslayan sure (saniye)</span>
+                                </div>
+                                <input type="number" id="settingWinnerCountdown" min="1" max="120" value="${Math.max(1, Math.min(120, Math.floor(Number(this.giftConfig.winnerCountdownSeconds) || 10)))}">
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- TAB: INTERACTION -->
+                    <div class="tab-content" data-tab="interaction">
                         <div class="settings-section">
                             <h3>💜 TikTok Etkileşim</h3>
                             <div class="setting-row">
@@ -161,6 +179,10 @@ class SettingsPanel {
                                 </label>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- TAB: AUDIO -->
+                    <div class="tab-content" data-tab="audio">
                         <div class="settings-section">
                             <h3>🔊 Ses Efektleri</h3>
                             <div class="setting-row">
@@ -297,7 +319,7 @@ class SettingsPanel {
                 <div class="guide-tabs">
                     <button class="guide-tab-btn active" data-tab="overview">🎯 Oyun Nedir?</button>
                     <button class="guide-tab-btn" data-tab="flow">⚙️ Nasil Calisir?</button>
-                    <button class="guide-tab-btn" data-tab="general">🎮 Genel</button>
+                    <button class="guide-tab-btn" data-tab="general">🧩 Ayar Sekmeleri</button>
                     <button class="guide-tab-btn" data-tab="skins">🎨 Gorunum</button>
                     <button class="guide-tab-btn" data-tab="gifts">🎁 Hediyeler</button>
                     <button class="guide-tab-btn" data-tab="windows">🪟 Pencereler</button>
@@ -329,7 +351,7 @@ class SettingsPanel {
                             <h3>Adim Adim Calisma Sekli</h3>
                             <ol class="guide-list guide-list-numbered">
                                 <li>Oyuna premium hesabinla giris yap.</li>
-                                <li>Ayarlar > Genel sekmesinden yayinci adlarini gir.</li>
+                                <li>Ayarlar > Baglanti sekmesinden yayinci adlarini gir.</li>
                                 <li>BAGLAN butonuyla baglantiyi ac (birden fazla yayinci girebilirsin).</li>
                                 <li>Hediye ve begeniler geldikce oyuncular spawn olur veya guc kazanir.</li>
                                 <li>Ayarlar > Hediyeler sekmesinden hangi hediyenin ne yapacagini belirle.</li>
@@ -343,13 +365,12 @@ class SettingsPanel {
 
                     <div class="guide-tab-content" data-tab="general">
                         <div class="guide-section">
-                            <h3>Genel Sekmesi Ne Ise Yarar?</h3>
+                            <h3>Temel Ayar Sekmeleri</h3>
                             <ul class="guide-list">
-                                <li><strong>Yayinci Baglanti:</strong> TikTok kullanici adlarini virgul veya boslukla girip baglanirsin.</li>
-                                <li><strong>Tumunu Kes:</strong> Bu oturumdaki aktif baglantilarini kapatir.</li>
-                                <li><strong>Top Ayarlari:</strong> Baslangic HP, saldiri, boyut, profil resmi boyutu ve kalkan suresi gibi temel denge ayarlari.</li>
-                                <li><strong>TikTok Etkilesim:</strong> Begeni esigi, begeniden gelen can artis miktari, rastgele bonus ac/kapat ve takip ile katilim ac/kapat secenegi.</li>
-                                <li><strong>Ses Efektleri:</strong> Oyun seslerini ac/kapat.</li>
+                                <li><strong>Baglanti:</strong> TikTok kullanici adlarini virgul veya boslukla girip baglanirsin. Tumunu Kes, bu oturumdaki baglantilarini kapatir.</li>
+                                <li><strong>Oyun:</strong> Baslangic HP, saldiri, boyut, profil resmi boyutu, kalkan suresi ve son kisi kalinca kazanan geri sayim suresi gibi temel denge ayarlari.</li>
+                                <li><strong>Etkilesim:</strong> Begeni esigi, begeniden gelen can artis miktari, rastgele bonus ac/kapat ve takip ile katilim ac/kapat secenegi.</li>
+                                <li><strong>Ses:</strong> Oyun seslerini ac/kapat.</li>
                             </ul>
                         </div>
                     </div>
@@ -1087,6 +1108,10 @@ class SettingsPanel {
         this.giftConfig.profileBlurAmount = Math.max(0, Number(this.overlay.querySelector('#settingProfileBlur')?.value) || 0);
         this.giftConfig.giftDetectionDelaySeconds = Math.max(1, Math.floor(Number(this.overlay.querySelector('#settingGiftDelay')?.value) || 10));
         this.giftConfig.defaultShieldDuration = parseInt(this.overlay.querySelector('#settingShieldDuration').value) || 5;
+        this.giftConfig.winnerCountdownSeconds = Math.max(
+            1,
+            Math.min(120, Math.floor(Number(this.overlay.querySelector('#settingWinnerCountdown')?.value) || 10))
+        );
         this.giftConfig.likesPerSpawn = parseInt(this.overlay.querySelector('#settingLikesPerSpawn').value) || 50;
         this.giftConfig.likeHealAmount = parseInt(this.overlay.querySelector('#settingLikeHeal').value) || 10;
         this.giftConfig.enableRandomLikeBonus = this.overlay.querySelector('#settingLikeRandomBonus')?.checked !== false;

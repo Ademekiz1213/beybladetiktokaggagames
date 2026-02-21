@@ -26,7 +26,7 @@ class Game {
         // Game state
         this.beyblades = [];
         this.state = 'idle'; // idle, battle, countdown, winner
-        this.countdownTimer = 10;
+        this.countdownTimer = this._getWinnerCountdownSeconds();
         this.winner = null;
         this.scores = {}; // uniqueId -> kill count
         this.cupScores = {}; // uniqueId -> cup count (round wins)
@@ -135,6 +135,11 @@ class Game {
         const rawSeconds = Number(this.giftConfig?.giftDetectionDelaySeconds);
         const safeSeconds = Math.max(1, Number.isFinite(rawSeconds) ? Math.floor(rawSeconds) : 10);
         return safeSeconds * 1000;
+    }
+
+    _getWinnerCountdownSeconds() {
+        const rawSeconds = Number(this.giftConfig?.winnerCountdownSeconds);
+        return Math.max(1, Math.min(120, Number.isFinite(rawSeconds) ? Math.floor(rawSeconds) : 10));
     }
 
     _queueGift(data) {
@@ -490,7 +495,7 @@ class Game {
         // Reset countdown if in countdown
         if (this.state === 'countdown') {
             this.state = 'battle';
-            this.countdownTimer = 10;
+            this.countdownTimer = this._getWinnerCountdownSeconds();
         }
 
         return blade;
@@ -509,7 +514,7 @@ class Game {
             if (aliveCount <= 1 && this.beyblades.length > 1) {
                 // Son 1 kisi kalinca geri sayim baslasin.
                 this.state = 'countdown';
-                this.countdownTimer = 10;
+                this.countdownTimer = this._getWinnerCountdownSeconds();
                 if (aliveCount === 1) {
                     this.winner = aliveBeyblades[0];
                 }
@@ -526,7 +531,7 @@ class Game {
         if (aliveBeyblades.length > 1) {
             // New player joined or someone revived → back to battle
             this.state = 'battle';
-            this.countdownTimer = 10;
+            this.countdownTimer = this._getWinnerCountdownSeconds();
             this._lastCountdownSec = -1;
             return;
         }
@@ -575,7 +580,7 @@ class Game {
     _resetRound() {
         this.beyblades = [];
         this.state = 'idle';
-        this.countdownTimer = 10;
+        this.countdownTimer = this._getWinnerCountdownSeconds();
         this.winner = null;
         this.likeAccumulators = {};
         this.pendingGiftQueue = [];

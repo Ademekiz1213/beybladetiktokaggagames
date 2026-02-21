@@ -26,6 +26,19 @@ PREMIUM_CODES=AYLIK-2026-02|30|0|28,AYLIK-2026-03|30|0|28
 
 `PREMIUM_CODES` formati: `KOD|sureGun|maxKullanim|tekrarCooldownGun`
 
+### TikTok proxy (opsiyonel)
+
+Bazı yayıncılarda bölgesel/hat kaynaklı bağlantı sorunu varsa proxy aç:
+
+```txt
+TIKTOK_PROXY_ENABLED=true
+TIKTOK_PROXY_INCLUDE_DIRECT=true
+TIKTOK_PROXY_CONNECT_TIMEOUT_MS=15000
+TIKTOK_PROXY_URLS=http://user:pass@ip1:port1,http://user:pass@ip2:port2,socks5://ip3:port3
+```
+
+Not: Bu sürümde `proxy-agent` bağımlılığı projeye eklendi. `git pull` sonrası `npm ci --omit=dev` çalıştırman yeterli.
+
 ## 1) Sunucuyu hazirla
 
 ```bash

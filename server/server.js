@@ -19,6 +19,34 @@ function envInt(name, fallback) {
     return Math.floor(raw);
 }
 
+function envBool(name, fallback = false) {
+    const raw = String(process.env[name] ?? '').trim().toLowerCase();
+    if (!raw) return fallback;
+    return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+function parseProxyUrls(rawValue) {
+    if (!rawValue) return [];
+    const values = String(rawValue)
+        .split(/[\n,;]+/)
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+
+    const unique = [];
+    const seen = new Set();
+    for (const value of values) {
+        const normalized = value.toLowerCase();
+        if (!/^(http|https|socks4|socks5):\/\//i.test(value)) {
+            continue;
+        }
+        if (seen.has(normalized)) continue;
+        seen.add(normalized);
+        unique.push(value);
+    }
+
+    return unique;
+}
+
 const MAX_STREAMERS_PER_TAB = envInt('MAX_STREAMERS_PER_TAB', 20);
 const MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER = envInt('MAX_FAILED_CONNECT_ATTEMPTS_PER_STREAMER', 10);
 const MAX_USERNAMES_PER_CONNECT_REQUEST = envInt('MAX_USERNAMES_PER_CONNECT_REQUEST', 8);
@@ -42,6 +70,33 @@ const DEFAULT_GIFT_DELAY_SECONDS = Math.max(
 );
 const ENABLE_TIKTOK_CHAT_EVENTS = String(process.env.ENABLE_TIKTOK_CHAT_EVENTS || '').toLowerCase() === 'true';
 const ENABLE_TIKTOK_SHARE_EVENTS = String(process.env.ENABLE_TIKTOK_SHARE_EVENTS || '').toLowerCase() === 'true';
+const TIKTOK_PROXY_URLS = parseProxyUrls(process.env.TIKTOK_PROXY_URLS || process.env.TIKTOK_PROXY_URL || '');
+const TIKTOK_PROXY_ENABLED = envBool('TIKTOK_PROXY_ENABLED', TIKTOK_PROXY_URLS.length > 0);
+const TIKTOK_PROXY_INCLUDE_DIRECT = envBool('TIKTOK_PROXY_INCLUDE_DIRECT', true);
+const TIKTOK_PROXY_CONNECT_TIMEOUT_MS = Math.max(5_000, envInt('TIKTOK_PROXY_CONNECT_TIMEOUT_MS', 15_000));
+const TIKTOK_PROXY_ROUTES = (() => {
+    if (!TIKTOK_PROXY_ENABLED || TIKTOK_PROXY_URLS.length === 0) return [];
+
+    const routes = [];
+    if (TIKTOK_PROXY_INCLUDE_DIRECT) {
+        routes.push({
+            proxyUrl: '',
+            routeLabel: 'direct'
+        });
+    }
+
+    for (let i = 0; i < TIKTOK_PROXY_URLS.length; i += 1) {
+        routes.push({
+            proxyUrl: TIKTOK_PROXY_URLS[i],
+            routeLabel: `proxy-${i + 1}`
+        });
+    }
+
+    return routes;
+})();
+if (TIKTOK_PROXY_ROUTES.length > 0) {
+    console.log(`[TikTok] Proxy support aktif. Route sayisi: ${TIKTOK_PROXY_ROUTES.length}`);
+}
 
 const liveSocketStates = new Map(); // socketId -> live connection snapshot
 const globalConnectedStreamerCount = new Map(); // streamerKey -> connected handler count
@@ -733,6 +788,7 @@ io.on('connection', (socket) => {
     const pendingConnects = new Set(); // streamerKey
     const pendingGiftEmitTimers = new Map(); // timeout -> streamerKey
     const autoReconnectStates = new Map(); // streamerKey -> { attempts, delayMs, timer }
+    const proxyRouteStates = new Map(); // streamerKey -> { lastAssignedIndex, lastSuccessfulIndex, pendingAssignedIndex, consecutiveFailures }
     let giftDelaySeconds = DEFAULT_GIFT_DELAY_SECONDS;
     let connectRequestTimestamps = []; // request timestamps for this socket
 
@@ -762,6 +818,60 @@ io.on('connection', (socket) => {
         }
         connectRequestTimestamps.push(now);
         return true;
+    }
+
+    function assignProxyConfigForStreamer(streamerKey) {
+        if (TIKTOK_PROXY_ROUTES.length === 0) return null;
+
+        const state = proxyRouteStates.get(streamerKey) || {
+            lastAssignedIndex: -1,
+            lastSuccessfulIndex: null,
+            pendingAssignedIndex: undefined,
+            consecutiveFailures: 0
+        };
+
+        let selectedIndex = 0;
+        if (state.lastSuccessfulIndex !== null && state.consecutiveFailures === 0) {
+            selectedIndex = state.lastSuccessfulIndex;
+        } else if (state.lastAssignedIndex >= 0) {
+            selectedIndex = (state.lastAssignedIndex + 1) % TIKTOK_PROXY_ROUTES.length;
+        }
+
+        const selected = TIKTOK_PROXY_ROUTES[selectedIndex] || TIKTOK_PROXY_ROUTES[0];
+        state.lastAssignedIndex = selectedIndex;
+        state.pendingAssignedIndex = selectedIndex;
+        proxyRouteStates.set(streamerKey, state);
+
+        return {
+            proxyUrl: selected.proxyUrl,
+            routeLabel: `${selected.routeLabel} (${selectedIndex + 1}/${TIKTOK_PROXY_ROUTES.length})`,
+            timeoutMs: TIKTOK_PROXY_CONNECT_TIMEOUT_MS
+        };
+    }
+
+    function markProxyConnectSuccess(streamerKey) {
+        const state = proxyRouteStates.get(streamerKey);
+        if (!state) return;
+
+        if (typeof state.pendingAssignedIndex === 'number') {
+            state.lastSuccessfulIndex = state.pendingAssignedIndex;
+        }
+        state.pendingAssignedIndex = undefined;
+        state.consecutiveFailures = 0;
+        proxyRouteStates.set(streamerKey, state);
+    }
+
+    function markProxyConnectFailure(streamerKey) {
+        const state = proxyRouteStates.get(streamerKey);
+        if (!state) return;
+
+        state.pendingAssignedIndex = undefined;
+        state.consecutiveFailures = Math.max(0, Number(state.consecutiveFailures || 0)) + 1;
+        proxyRouteStates.set(streamerKey, state);
+    }
+
+    function clearProxyRouteState(streamerKey) {
+        proxyRouteStates.delete(streamerKey);
     }
 
     function getStreamerRetryState(streamerKey) {
@@ -975,6 +1085,7 @@ io.on('connection', (socket) => {
         clearPendingConnect(streamerKey);
         clearAutoReconnect(streamerKey);
         clearPendingGiftEventsForStreamer(streamerKey);
+        clearProxyRouteState(streamerKey);
 
         if (handler._countedGlobally) {
             decrementGlobalStreamerCount(streamerKey);
@@ -1062,6 +1173,8 @@ io.on('connection', (socket) => {
         const handler = new TikTokHandler(normalized, {
             enableChatEvents: ENABLE_TIKTOK_CHAT_EVENTS,
             enableShareEvents: ENABLE_TIKTOK_SHARE_EVENTS,
+            resolveProxyConfig: () => assignProxyConfigForStreamer(streamerKey),
+            connectionTimeoutMs: TIKTOK_PROXY_CONNECT_TIMEOUT_MS,
             onStatus: (status) => {
                 if (handler._released) {
                     return;
@@ -1070,6 +1183,7 @@ io.on('connection', (socket) => {
                 const statusPayload = { ...status };
 
                 if (statusPayload.connected) {
+                    markProxyConnectSuccess(streamerKey);
                     clearAutoReconnect(streamerKey);
                     failedConnectAttempts.delete(streamerKey);
                     streamerCooldowns.delete(streamerKey);
@@ -1081,6 +1195,9 @@ io.on('connection', (socket) => {
 
                 // Auto-remove dead handler so same streamer can reconnect in this tab.
                 if (!status.connecting && !status.connected) {
+                    if (!status.disconnectedByUser) {
+                        markProxyConnectFailure(streamerKey);
+                    }
                     clearPendingGiftEventsForStreamer(streamerKey);
                     if (handler._countedGlobally) {
                         decrementGlobalStreamerCount(streamerKey);
@@ -1107,6 +1224,7 @@ io.on('connection', (socket) => {
                             const current = sessionHandlers.get(streamerKey);
                             if (current === handler) {
                                 sessionHandlers.delete(streamerKey);
+                                clearProxyRouteState(streamerKey);
                             }
                             setStreamerCooldown(streamerKey, DISCONNECT_RECONNECT_COOLDOWN_MS, 'auto_reconnect_limit');
                             statusPayload.connectBlocked = true;
@@ -1118,6 +1236,9 @@ io.on('connection', (socket) => {
                         const current = sessionHandlers.get(streamerKey);
                         if (current === handler) {
                             sessionHandlers.delete(streamerKey);
+                            if (status.streamEnded) {
+                                clearProxyRouteState(streamerKey);
+                            }
                         }
 
                         const previous = failedConnectAttempts.get(streamerKey) || {
@@ -1454,6 +1575,7 @@ io.on('connection', (socket) => {
         for (const streamerKey of Array.from(autoReconnectStates.keys())) {
             clearAutoReconnect(streamerKey);
         }
+        proxyRouteStates.clear();
         failedConnectAttempts.clear();
         streamerCooldowns.clear();
         connectRequestTimestamps = [];

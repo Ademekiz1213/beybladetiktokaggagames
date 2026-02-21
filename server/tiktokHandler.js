@@ -1,5 +1,17 @@
 ﻿const { WebcastPushConnection } = require('tiktok-live-connector');
 
+let ProxyAgent = null;
+try {
+    // Optional dependency. If not installed, handler will fallback to direct connection.
+    const proxyAgentModule = require('proxy-agent');
+    ProxyAgent = proxyAgentModule?.ProxyAgent || proxyAgentModule;
+    if (typeof ProxyAgent !== 'function') {
+        ProxyAgent = null;
+    }
+} catch {
+    ProxyAgent = null;
+}
+
 class TikTokHandler {
     constructor(username, options = {}) {
         this.username = TikTokHandler.normalizeUsername(username);
@@ -8,12 +20,19 @@ class TikTokHandler {
         this.onEvent = options.onEvent;
         this.enableChatEvents = Boolean(options.enableChatEvents);
         this.enableShareEvents = Boolean(options.enableShareEvents);
+        this.resolveProxyConfig = typeof options.resolveProxyConfig === 'function'
+            ? options.resolveProxyConfig
+            : null;
+        this.connectionTimeoutMs = Math.max(3_000, Number(options.connectionTimeoutMs) || 15_000);
 
         this.connection = null;
         this.isConnected = false;
         this.isConnecting = false;
         this.hasEverConnected = false;
         this.likeCounters = {}; // viewerId -> accumulated likes
+        this.connectionRouteLabel = 'direct';
+        this.proxyEnabled = false;
+        this._proxyModuleWarningShown = false;
     }
 
     static normalizeUsername(username) {
@@ -119,6 +138,72 @@ class TikTokHandler {
         return fallbackMessage;
     }
 
+    _resolveProxyConfig() {
+        if (!this.resolveProxyConfig) return null;
+
+        try {
+            const raw = this.resolveProxyConfig(this.username, this.streamerKey);
+            if (!raw || typeof raw !== 'object') return null;
+
+            const proxyUrl = String(raw.proxyUrl || '').trim();
+            const routeLabel = String(raw.routeLabel || '').trim();
+            const timeoutMs = Math.max(3_000, Number(raw.timeoutMs) || this.connectionTimeoutMs);
+
+            return {
+                proxyUrl,
+                routeLabel,
+                timeoutMs
+            };
+        } catch (error) {
+            console.error(`[TikTok] Proxy resolve failed [${this.username}]:`, this._resolveErrorMessage(error));
+            return null;
+        }
+    }
+
+    _buildConnectionOptions(proxyConfig) {
+        const timeoutMs = Math.max(3_000, Number(proxyConfig?.timeoutMs) || this.connectionTimeoutMs);
+        const options = {
+            enableExtendedGiftInfo: true,
+            requestOptions: {
+                timeout: timeoutMs
+            },
+            websocketOptions: {
+                timeout: timeoutMs
+            }
+        };
+
+        this.proxyEnabled = false;
+        this.connectionRouteLabel = String(proxyConfig?.routeLabel || '').trim() || 'direct';
+
+        const proxyUrl = String(proxyConfig?.proxyUrl || '').trim();
+        if (!proxyUrl) {
+            return options;
+        }
+
+        if (!ProxyAgent) {
+            if (!this._proxyModuleWarningShown) {
+                this._proxyModuleWarningShown = true;
+                console.warn('[TikTok] proxy-agent modulu bulunamadi. Proxy ayari atlanip direct baglanti kullanilacak.');
+            }
+            this.connectionRouteLabel = `${this.connectionRouteLabel} (direct fallback)`;
+            return options;
+        }
+
+        try {
+            const agent = new ProxyAgent(proxyUrl);
+            options.requestOptions.httpsAgent = agent;
+            options.requestOptions.httpAgent = agent;
+            options.requestOptions.proxy = false;
+            options.websocketOptions.agent = agent;
+            this.proxyEnabled = true;
+        } catch (error) {
+            console.error(`[TikTok] Proxy agent olusturulamadi [${this.username}]:`, this._resolveErrorMessage(error));
+            this.connectionRouteLabel = `${this.connectionRouteLabel} (direct fallback)`;
+        }
+
+        return options;
+    }
+
     async connect() {
         if (this.connection) {
             try {
@@ -133,16 +218,19 @@ class TikTokHandler {
             }
         }
 
-        this.connection = new WebcastPushConnection(this.username, {
-            enableExtendedGiftInfo: true
-        });
+        const proxyConfig = this._resolveProxyConfig();
+        const connectionOptions = this._buildConnectionOptions(proxyConfig);
+        this.connection = new WebcastPushConnection(this.username, connectionOptions);
         this._setupEventListeners();
         this.isConnected = false;
         this.isConnecting = true;
+        console.log(`[TikTok] Connecting to ${this.username} via ${this.connectionRouteLabel}`);
 
         this._emitStatus({
             connected: false,
-            connecting: true
+            connecting: true,
+            connectionRoute: this.connectionRouteLabel,
+            proxyEnabled: this.proxyEnabled
         });
 
         try {
@@ -156,7 +244,9 @@ class TikTokHandler {
             this._emitStatus({
                 connected: true,
                 connecting: false,
-                roomId
+                roomId,
+                connectionRoute: this.connectionRouteLabel,
+                proxyEnabled: this.proxyEnabled
             });
         } catch (err) {
             this.isConnected = false;
@@ -167,7 +257,9 @@ class TikTokHandler {
             this._emitStatus({
                 connected: false,
                 connecting: false,
-                error: errorMessage
+                error: errorMessage,
+                connectionRoute: this.connectionRouteLabel,
+                proxyEnabled: this.proxyEnabled
             });
         }
     }
@@ -297,7 +389,9 @@ class TikTokHandler {
                 connected: false,
                 connecting: false,
                 streamEnded: true,
-                error: 'Yayin sona erdi'
+                error: 'Yayin sona erdi',
+                connectionRoute: this.connectionRouteLabel,
+                proxyEnabled: this.proxyEnabled
             });
         });
 
@@ -311,7 +405,9 @@ class TikTokHandler {
             this._emitStatus({
                 connected: false,
                 connecting: false,
-                error: errorMessage
+                error: errorMessage,
+                connectionRoute: this.connectionRouteLabel,
+                proxyEnabled: this.proxyEnabled
             });
         });
 
@@ -322,7 +418,9 @@ class TikTokHandler {
             this._emitStatus({
                 connected: this.isConnected,
                 connecting: this.isConnecting,
-                error: errorMessage
+                error: errorMessage,
+                connectionRoute: this.connectionRouteLabel,
+                proxyEnabled: this.proxyEnabled
             });
         });
     }
@@ -343,6 +441,7 @@ class TikTokHandler {
         this.isConnecting = false;
         this.likeCounters = {};
         this.connection = null;
+        this.proxyEnabled = false;
         console.log(`[TikTok] Disconnected manually [${this.username}]`);
 
         if (!silent) {

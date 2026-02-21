@@ -506,6 +506,9 @@ class SettingsPanel {
         this.overlay.querySelectorAll('.tab-content').forEach(content => {
             content.classList.toggle('active', content.dataset.tab === tab);
         });
+
+        const body = this.overlay.querySelector('.settings-body');
+        if (body) body.scrollTop = 0;
     }
 
     _switchGuideTab(tab) {
@@ -566,6 +569,8 @@ class SettingsPanel {
         if (this.guideOpen) this.closeGuide();
         this.isOpen = true;
         this.overlay.style.display = 'flex';
+        const body = this.overlay.querySelector('.settings-body');
+        if (body) body.scrollTop = 0;
         this.syncFormWithConfig();
         this._renderGiftList();
         this._renderSkinGrid();

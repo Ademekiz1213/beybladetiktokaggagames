@@ -109,6 +109,10 @@ class Game {
             const idx = this.killFeed.indexOf(entry);
             if (idx !== -1) this.killFeed.splice(idx, 1);
         }, 4000);
+
+        if (window.uiManager && typeof window.uiManager.showEliminationNotification === 'function') {
+            window.uiManager.showEliminationNotification(entry.killerName, entry.victimName);
+        }
     }
 
     resize() {
@@ -544,6 +548,10 @@ class Game {
         if (this.state === 'countdown') {
             this.state = 'battle';
             this.countdownTimer = this._getWinnerCountdownSeconds();
+        }
+
+        if (window.uiManager && typeof window.uiManager.showJoinNotification === 'function') {
+            window.uiManager.showJoinNotification(data?.nickname);
         }
 
         return blade;
@@ -1088,13 +1096,16 @@ class Game {
     }
 
     adjustScore(uniqueId, delta) {
-        const current = this.scores[uniqueId] || 0;
+        const current = this.cupScores[uniqueId] || 0;
         const newVal = Math.max(0, current + delta);
         if (newVal === 0) {
-            delete this.scores[uniqueId];
-            delete this.nicknames[uniqueId];
+            delete this.cupScores[uniqueId];
+            if ((this.scores[uniqueId] || 0) <= 0) {
+                delete this.nicknames[uniqueId];
+                delete this.profilePics[uniqueId];
+            }
         } else {
-            this.scores[uniqueId] = newVal;
+            this.cupScores[uniqueId] = newVal;
         }
         this._saveScores();
     }

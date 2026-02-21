@@ -586,6 +586,10 @@ function sanitizeRuntimeSettings(raw) {
     if (raw.likeHealAmount !== undefined) next.likeHealAmount = clampInt(raw.likeHealAmount, 1, 100, 10);
     if (raw.enableRandomLikeBonus !== undefined) next.enableRandomLikeBonus = Boolean(raw.enableRandomLikeBonus);
     if (raw.followSpawnEnabled !== undefined) next.followSpawnEnabled = Boolean(raw.followSpawnEnabled);
+    if (raw.arenaNotificationsEnabled !== undefined) next.arenaNotificationsEnabled = Boolean(raw.arenaNotificationsEnabled);
+    if (raw.notifyOnJoin !== undefined) next.notifyOnJoin = Boolean(raw.notifyOnJoin);
+    if (raw.notifyOnElimination !== undefined) next.notifyOnElimination = Boolean(raw.notifyOnElimination);
+    if (raw.arenaNotificationSeconds !== undefined) next.arenaNotificationSeconds = clampInt(raw.arenaNotificationSeconds, 1, 15, 3);
 
     if (raw.selectedSkin !== undefined) {
         const selectedSkin = String(raw.selectedSkin || '').trim();

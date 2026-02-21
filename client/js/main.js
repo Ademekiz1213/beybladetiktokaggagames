@@ -67,6 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 likeHealAmount: config.likeHealAmount,
                 enableRandomLikeBonus: config.enableRandomLikeBonus,
                 followSpawnEnabled: config.followSpawnEnabled,
+                arenaNotificationsEnabled: config.arenaNotificationsEnabled,
+                notifyOnJoin: config.notifyOnJoin,
+                notifyOnElimination: config.notifyOnElimination,
+                arenaNotificationSeconds: config.arenaNotificationSeconds,
                 selectedSkin: config.selectedSkin,
                 arenaTheme: config.arenaTheme,
                 arenaShape: config.arenaShape

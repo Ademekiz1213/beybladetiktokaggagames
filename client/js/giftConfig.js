@@ -17,6 +17,10 @@ class GiftConfig {
         this.giftDetectionDelaySeconds = 10;
         this.winnerCountdownSeconds = 10;
         this.defaultShieldDuration = 5;
+        this.arenaNotificationsEnabled = true;
+        this.notifyOnJoin = true;
+        this.notifyOnElimination = true;
+        this.arenaNotificationSeconds = 3;
         this.selectedSkin = 'classic';
         this.arenaTheme = 'cyber';
         this.arenaShape = 'circle';
@@ -114,6 +118,10 @@ class GiftConfig {
             giftDetectionDelaySeconds: this.giftDetectionDelaySeconds,
             winnerCountdownSeconds: this.winnerCountdownSeconds,
             defaultShieldDuration: this.defaultShieldDuration,
+            arenaNotificationsEnabled: this.arenaNotificationsEnabled,
+            notifyOnJoin: this.notifyOnJoin,
+            notifyOnElimination: this.notifyOnElimination,
+            arenaNotificationSeconds: this.arenaNotificationSeconds,
             selectedSkin: this.selectedSkin,
             arenaTheme: this.arenaTheme,
             arenaShape: this.arenaShape,
@@ -139,6 +147,12 @@ class GiftConfig {
             this.winnerCountdownSeconds = Math.max(1, Math.min(120, Math.floor(Number(data.winnerCountdownSeconds) || 10)));
         }
         if (data.defaultShieldDuration !== undefined) this.defaultShieldDuration = data.defaultShieldDuration;
+        if (data.arenaNotificationsEnabled !== undefined) this.arenaNotificationsEnabled = Boolean(data.arenaNotificationsEnabled);
+        if (data.notifyOnJoin !== undefined) this.notifyOnJoin = Boolean(data.notifyOnJoin);
+        if (data.notifyOnElimination !== undefined) this.notifyOnElimination = Boolean(data.notifyOnElimination);
+        if (data.arenaNotificationSeconds !== undefined) {
+            this.arenaNotificationSeconds = Math.max(1, Math.min(15, Math.floor(Number(data.arenaNotificationSeconds) || 3)));
+        }
         if (data.selectedSkin !== undefined) this.selectedSkin = data.selectedSkin;
         if (data.arenaTheme !== undefined) this.arenaTheme = data.arenaTheme;
         if (data.arenaShape !== undefined) this.arenaShape = data.arenaShape;

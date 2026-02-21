@@ -491,6 +491,58 @@ body {
     word-break: break-word;
 }
 
+.arena-notice-layer {
+    position: fixed;
+    top: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(560px, calc(100vw - 20px));
+    z-index: 88;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.arena-notice {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(10, 15, 32, 0.9);
+    color: #e8f2ff;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
+}
+
+.arena-notice.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.arena-notice.is-hiding {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+}
+
+.arena-notice.is-join {
+    border-color: rgba(34, 214, 122, 0.45);
+    background: rgba(8, 45, 29, 0.9);
+    color: #b9ffd8;
+}
+
+.arena-notice.is-elimination {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(60, 17, 17, 0.9);
+    color: #ffd2d2;
+}
+
 .btn-disconnect {
     width: 28px;
     height: 28px;
@@ -2585,6 +2637,16 @@ body {
     .admin-announcement-banner {
         top: 62px;
         width: calc(100vw - 12px);
+        padding: 9px 10px;
+    }
+
+    .arena-notice-layer {
+        top: 56px;
+        width: calc(100vw - 12px);
+    }
+
+    .arena-notice {
+        font-size: 12px;
         padding: 9px 10px;
     }
 }

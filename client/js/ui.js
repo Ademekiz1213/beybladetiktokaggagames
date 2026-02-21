@@ -25,6 +25,7 @@ class UIManager {
         this._createPlayerPanel();
         this._createScoreboard();
         this._createFeedToggle();
+        this._createArenaNoticeLayer();
         this._createAnnouncementBanner();
         this._createStartupAnnouncementModal();
         this._bindEvents();
@@ -92,6 +93,12 @@ class UIManager {
             this.eventFeed.style.display = this.eventFeedVisible ? 'block' : 'none';
             this.feedToggleBtn.classList.toggle('feed-hidden', !this.eventFeedVisible);
         });
+    }
+
+    _createArenaNoticeLayer() {
+        this.arenaNoticeLayer = document.createElement('div');
+        this.arenaNoticeLayer.className = 'arena-notice-layer';
+        document.body.appendChild(this.arenaNoticeLayer);
     }
 
     _createAnnouncementBanner() {
@@ -294,6 +301,59 @@ class UIManager {
             ? 'Yeni beyblade girisini kapat'
             : 'Yeni beyblade girisini ac';
         this.joinToggleBtn.classList.toggle('is-closed', !enabled);
+    }
+
+    _getArenaNoticeConfig() {
+        const config = window.game?.giftConfig;
+        const enabled = !config || config.arenaNotificationsEnabled !== false;
+        const notifyJoin = !config || config.notifyOnJoin !== false;
+        const notifyElimination = !config || config.notifyOnElimination !== false;
+        const seconds = Math.max(1, Math.min(15, Math.floor(Number(config?.arenaNotificationSeconds) || 3)));
+        return { enabled, notifyJoin, notifyElimination, seconds };
+    }
+
+    _showArenaNotice(message, tone = 'neutral') {
+        const text = String(message || '').trim();
+        if (!text || !this.arenaNoticeLayer) return;
+
+        const item = document.createElement('div');
+        item.className = `arena-notice ${tone === 'join' ? 'is-join' : tone === 'elimination' ? 'is-elimination' : ''}`;
+        item.textContent = text;
+        this.arenaNoticeLayer.appendChild(item);
+
+        while (this.arenaNoticeLayer.children.length > 4) {
+            this.arenaNoticeLayer.removeChild(this.arenaNoticeLayer.firstChild);
+        }
+
+        requestAnimationFrame(() => {
+            item.classList.add('is-visible');
+        });
+
+        const { seconds } = this._getArenaNoticeConfig();
+        window.setTimeout(() => {
+            item.classList.remove('is-visible');
+            item.classList.add('is-hiding');
+            window.setTimeout(() => {
+                item.remove();
+            }, 260);
+        }, seconds * 1000);
+    }
+
+    showJoinNotification(nickname) {
+        const { enabled, notifyJoin } = this._getArenaNoticeConfig();
+        if (!enabled || !notifyJoin) return;
+
+        const name = String(nickname || '').trim() || 'Bir oyuncu';
+        this._showArenaNotice(`🟢 ${name} arenaya katildi`, 'join');
+    }
+
+    showEliminationNotification(killerName, victimName) {
+        const { enabled, notifyElimination } = this._getArenaNoticeConfig();
+        if (!enabled || !notifyElimination) return;
+
+        const killer = String(killerName || '').trim() || 'Bir oyuncu';
+        const victim = String(victimName || '').trim() || 'rakibini';
+        this._showArenaNotice(`⚔️ ${killer}, ${victim} eledi`, 'elimination');
     }
 
     _setConnectLoading(isLoading) {
@@ -625,25 +685,28 @@ class UIManager {
         profilePics = profilePics || {};
 
         // Dirty check — only update DOM when data actually changes
-        const hash = JSON.stringify({ scores, cupScores });
+        const hash = JSON.stringify(
+            Object.keys(cupScores)
+                .sort()
+                .map((id) => [id, cupScores[id], nicknames[id] || id, profilePics[id] || ''])
+        );
         if (hash === this._lastScoreHash) {
             return;
         }
         this._lastScoreHash = hash;
 
         // Convert to sorted array
-        const entries = Object.entries(scores)
-            .map(([id, kills]) => ({
+        const entries = Object.entries(cupScores)
+            .map(([id, cups]) => ({
                 id,
-                kills,
-                cups: cupScores[id] || 0,
+                cups,
                 name: nicknames[id] || id,
                 pic: profilePics[id] || ''
             }))
-            .sort((a, b) => b.kills - a.kills);
+            .sort((a, b) => Number(b.cups || 0) - Number(a.cups || 0));
 
         if (entries.length === 0) {
-            this.scoreboardList.innerHTML = '<div class="player-empty">Henüz kill yok</div>';
+            this.scoreboardList.innerHTML = '<div class="player-empty">Henüz kupa yok</div>';
             return;
         }
 
@@ -666,7 +729,7 @@ class UIManager {
                     <span class="score-name">${this._escapeHtml(entry.name)}</span>
                     <span class="score-controls">
                         <button class="score-btn score-minus" data-uid="${entry.id}" title="Azalt">−</button>
-                        <span class="score-wins">${entry.kills}☠️ ${entry.cups}🏆</span>
+                        <span class="score-wins">${entry.cups}🏆</span>
                         <button class="score-btn score-plus" data-uid="${entry.id}" title="Arttır">+</button>
                     </span>
                 </div>
@@ -986,7 +1049,7 @@ class UIManager {
 </head>
 <body>
     <h1>🏆 Arena Fatihleri</h1>
-    <div id="popupList"><div class="empty">Henüz kill yok</div></div>
+    <div id="popupList"><div class="empty">Henüz kupa yok</div></div>
     <div class="auto-update">Otomatik güncellenir</div>
     <script>
         var lastHash = '';
@@ -1004,31 +1067,33 @@ class UIManager {
             try {
                 if (!window.opener || !window.opener.game) return;
                 var game = window.opener.game;
-                var scores = game.scores;
                 var cupScores = game.cupScores || {};
                 var nicknames = game.nicknames;
                 var pics = game.profilePics || {};
                 var blurPx = Math.max(0, Number(game.giftConfig && game.giftConfig.profileBlurAmount) || 0);
-                var hash = JSON.stringify({ scores: scores, cupScores: cupScores });
+                var hash = JSON.stringify(
+                    Object.keys(cupScores)
+                        .sort()
+                        .map(function(id) { return [id, cupScores[id], nicknames[id] || id, pics[id] || '']; })
+                );
                 if (hash === lastHash) return;
                 lastHash = hash;
 
                 var container = document.getElementById('popupList');
-                var keys = Object.keys(scores);
+                var keys = Object.keys(cupScores);
                 var entries = [];
                 for (var i = 0; i < keys.length; i++) {
                     entries.push({
                         id: keys[i],
-                        kills: scores[keys[i]],
                         cups: cupScores[keys[i]] || 0,
                         name: nicknames[keys[i]] || keys[i],
                         pic: pics[keys[i]] || ''
                     });
                 }
-                entries.sort(function(a, b) { return b.kills - a.kills; });
+                entries.sort(function(a, b) { return Number(b.cups || 0) - Number(a.cups || 0); });
 
                 if (entries.length === 0) {
-                    container.innerHTML = '<div class="empty">Hen\\u00fcz kill yok</div>';
+                    container.innerHTML = '<div class="empty">Hen\\u00fcz kupa yok</div>';
                     return;
                 }
 
@@ -1047,7 +1112,7 @@ class UIManager {
                     html += '<span class="score-name">' + entry.name + '</span>';
                     html += '<span class="score-controls">';
                     html += '<button class="score-btn score-minus" data-uid="' + entry.id + '">\\u2212</button>';
-                    html += '<span class="score-wins">' + entry.kills + '\\u2620\\ufe0f ' + entry.cups + '\\ud83c\\udfc6</span>';
+                    html += '<span class="score-wins">' + entry.cups + '\\ud83c\\udfc6</span>';
                     html += '<button class="score-btn score-plus" data-uid="' + entry.id + '">+</button>';
                     html += '</span></div>';
                 }

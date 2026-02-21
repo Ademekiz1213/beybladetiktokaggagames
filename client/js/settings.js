@@ -48,6 +48,7 @@ class SettingsPanel {
                     <button class="tab-btn" data-tab="battle">⚔️ Oyun</button>
                     <button class="tab-btn" data-tab="interaction">💜 Etkilesim</button>
                     <button class="tab-btn" data-tab="audio">🔊 Ses</button>
+                    <button class="tab-btn" data-tab="notifications">🔔 Bildirim</button>
                     <button class="tab-btn" data-tab="skins">🎨 Görünüm</button>
                     <button class="tab-btn" data-tab="gifts">🎁 Hediyeler</button>
                     <button class="tab-btn" data-tab="windows">🪟 Pencereler</button>
@@ -215,6 +216,50 @@ class SettingsPanel {
                         </div>
                     </div>
 
+                    <!-- TAB: NOTIFICATIONS -->
+                    <div class="tab-content" data-tab="notifications">
+                        <div class="settings-section">
+                            <h3>🔔 Arena Ustu Bildirimler</h3>
+                            <div class="setting-row">
+                                <div class="setting-label">
+                                    <label>🔔 Bildirimleri Aktif Et</label>
+                                    <span class="setting-hint">Arena ustunde katilim/eleme bildirimi gosterir</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settingArenaNotificationsEnabled" ${this.giftConfig.arenaNotificationsEnabled !== false ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row" id="settingNotifyJoinRow">
+                                <div class="setting-label">
+                                    <label>🟢 Katilim Bildirimi</label>
+                                    <span class="setting-hint">Yeni oyuncu arenaya girdiginde goster</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settingNotifyJoin" ${this.giftConfig.notifyOnJoin !== false ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row" id="settingNotifyEliminationRow">
+                                <div class="setting-label">
+                                    <label>⚔️ Eleme Bildirimi</label>
+                                    <span class="setting-hint">Bir oyuncu rakibini elediginde goster</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settingNotifyElimination" ${this.giftConfig.notifyOnElimination !== false ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row" id="settingArenaNotificationSecondsRow">
+                                <div class="setting-label">
+                                    <label>⏱️ Bildirim Suresi</label>
+                                    <span class="setting-hint">Bildirim ekranda kac saniye kalsin</span>
+                                </div>
+                                <input type="number" id="settingArenaNotificationSeconds" min="1" max="15" value="${Math.max(1, Math.min(15, Math.floor(Number(this.giftConfig.arenaNotificationSeconds) || 3)))}">
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- TAB: SKINS -->
                     <div class="tab-content" data-tab="skins">
                         <div class="settings-section">
@@ -358,7 +403,7 @@ class SettingsPanel {
                                 <li>Yayinci(lar)i baglarsin.</li>
                                 <li>Izleyici etkilesimleri oyuna anlik yansir.</li>
                                 <li>Oyuncu toplari oyuna katilir, guclenir, carpisir.</li>
-                                <li>Arena Fatihleri listesi kill sayisina gore siralanir.</li>
+                                <li>Arena Fatihleri listesi kupa sayisina gore siralanir.</li>
                             </ul>
                         </div>
                     </div>
@@ -388,6 +433,7 @@ class SettingsPanel {
                                 <li><strong>Oyun:</strong> Baslangic HP, saldiri, boyut, profil resmi boyutu, kalkan suresi ve son kisi kalinca kazanan geri sayim suresi gibi temel denge ayarlari.</li>
                                 <li><strong>Etkilesim:</strong> Begeni esigi, begeniden gelen can artis miktari, rastgele bonus ac/kapat ve takip ile katilim ac/kapat secenegi.</li>
                                 <li><strong>Ses:</strong> Oyun seslerini ac/kapat.</li>
+                                <li><strong>Bildirim:</strong> Arena ustunde katilim ve eleme bildirimlerini ac/kapat ve sure ayari.</li>
                             </ul>
                         </div>
                     </div>
@@ -472,12 +518,14 @@ class SettingsPanel {
         const profileBlurSlider = this.overlay.querySelector('#settingProfileBlur');
         const giftDelaySlider = this.overlay.querySelector('#settingGiftDelay');
         const sizeLimitToggle = this.overlay.querySelector('#settingSizeLimitEnabled');
+        const arenaNotificationsToggle = this.overlay.querySelector('#settingArenaNotificationsEnabled');
         profileBlurSlider?.addEventListener('input', () => {
             this._syncCompliancePreview();
             this._applyProfileBlurToDom();
         });
         giftDelaySlider?.addEventListener('input', () => this._syncCompliancePreview());
         sizeLimitToggle?.addEventListener('change', () => this._syncSizeLimitControls());
+        arenaNotificationsToggle?.addEventListener('change', () => this._syncNotificationControls());
 
         // Tab switching
         this.overlay.querySelectorAll('.tab-btn').forEach(btn => {
@@ -511,6 +559,7 @@ class SettingsPanel {
 
         this._syncCompliancePreview();
         this._syncSizeLimitControls();
+        this._syncNotificationControls();
     }
 
     _switchTab(tab) {
@@ -585,6 +634,24 @@ class SettingsPanel {
         }
     }
 
+    _syncNotificationControls() {
+        const toggle = this.overlay?.querySelector('#settingArenaNotificationsEnabled');
+        if (!toggle) return;
+
+        const enabled = toggle.checked;
+        const ids = ['#settingNotifyJoin', '#settingNotifyElimination', '#settingArenaNotificationSeconds'];
+        const rowIds = ['#settingNotifyJoinRow', '#settingNotifyEliminationRow', '#settingArenaNotificationSecondsRow'];
+
+        ids.forEach((selector) => {
+            const element = this.overlay?.querySelector(selector);
+            if (element) element.disabled = !enabled;
+        });
+        rowIds.forEach((selector) => {
+            const row = this.overlay?.querySelector(selector);
+            if (row) row.classList.toggle('is-disabled', !enabled);
+        });
+    }
+
     show() {
         this.settingsBtn.style.display = 'flex';
         this.guideBtn.style.display = 'flex';
@@ -655,6 +722,10 @@ class SettingsPanel {
         setValue('#settingLikeHeal', this.giftConfig.likeHealAmount);
         setChecked('#settingLikeRandomBonus', this.giftConfig.enableRandomLikeBonus !== false);
         setChecked('#settingFollowSpawnEnabled', this.giftConfig.followSpawnEnabled !== false);
+        setChecked('#settingArenaNotificationsEnabled', this.giftConfig.arenaNotificationsEnabled !== false);
+        setChecked('#settingNotifyJoin', this.giftConfig.notifyOnJoin !== false);
+        setChecked('#settingNotifyElimination', this.giftConfig.notifyOnElimination !== false);
+        setValue('#settingArenaNotificationSeconds', Math.max(1, Math.floor(Number(this.giftConfig.arenaNotificationSeconds) || 3)));
         setValue('#settingProfileBlur', Math.max(0, Number(this.giftConfig.profileBlurAmount) || 0));
         setValue('#settingGiftDelay', Math.max(1, Math.floor(Number(this.giftConfig.giftDetectionDelaySeconds) || 10)));
 
@@ -664,6 +735,7 @@ class SettingsPanel {
 
         this._syncCompliancePreview();
         this._syncSizeLimitControls();
+        this._syncNotificationControls();
         this._applyProfileBlurToDom();
     }
 
@@ -1197,8 +1269,16 @@ class SettingsPanel {
         this.giftConfig.likeHealAmount = parseInt(this.overlay.querySelector('#settingLikeHeal').value) || 10;
         this.giftConfig.enableRandomLikeBonus = this.overlay.querySelector('#settingLikeRandomBonus')?.checked !== false;
         this.giftConfig.followSpawnEnabled = this.overlay.querySelector('#settingFollowSpawnEnabled')?.checked !== false;
+        this.giftConfig.arenaNotificationsEnabled = this.overlay.querySelector('#settingArenaNotificationsEnabled')?.checked !== false;
+        this.giftConfig.notifyOnJoin = this.overlay.querySelector('#settingNotifyJoin')?.checked !== false;
+        this.giftConfig.notifyOnElimination = this.overlay.querySelector('#settingNotifyElimination')?.checked !== false;
+        this.giftConfig.arenaNotificationSeconds = Math.max(
+            1,
+            Math.min(15, Math.floor(Number(this.overlay.querySelector('#settingArenaNotificationSeconds')?.value) || 3))
+        );
         this._syncCompliancePreview();
         this._syncSizeLimitControls();
+        this._syncNotificationControls();
         this._applyProfileBlurToDom();
 
         // Skin is already set via click handler

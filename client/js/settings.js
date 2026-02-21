@@ -63,7 +63,7 @@ class SettingsPanel {
                                     <label for="settingsUsernameInput">TikTok Yayinci Adlari</label>
                                     <div class="input-wrapper">
                                         <span class="input-prefix">@</span>
-                                        <input type="text" id="settingsUsernameInput" placeholder="yayinci1, yayinci2" autocomplete="off">
+                                        <input type="text" id="settingsUsernameInput" placeholder="knewzystreamer" autocomplete="off">
                                     </div>
                                 </div>
                                 <button id="settingsConnectBtn" class="btn-connect settings-connect-btn">

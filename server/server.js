@@ -488,6 +488,31 @@ function getTrackedUsernames(handlers) {
     return Array.from(handlers.values()).map((handler) => handler.username);
 }
 
+function findOtherActiveSocketForUser(userEmail, currentSocketId) {
+    const normalizedEmail = String(userEmail || '').trim().toLowerCase();
+    if (!normalizedEmail) return null;
+
+    for (const [socketId, entry] of liveSocketStates.entries()) {
+        if (!entry || socketId === currentSocketId) continue;
+
+        const entryEmail = String(entry.userEmail || '').trim().toLowerCase();
+        if (!entryEmail || entryEmail !== normalizedEmail) continue;
+
+        const connectedCount = Number(entry.connectedCount || 0);
+        const trackedCount = Number(entry.trackedCount || 0);
+        const isConnecting = Boolean(entry?.lastStatus?.connecting || entry?.lastStatus?.queued);
+        if (connectedCount > 0 || trackedCount > 0 || isConnecting) {
+            return {
+                socketId: String(entry.socketId || socketId),
+                connectedCount,
+                trackedCount
+            };
+        }
+    }
+
+    return null;
+}
+
 function incrementGlobalStreamerCount(streamerKey) {
     const current = Number(globalConnectedStreamerCount.get(streamerKey) || 0);
     globalConnectedStreamerCount.set(streamerKey, current + 1);
@@ -1183,6 +1208,24 @@ io.on('connection', (socket) => {
             emitSocketStatus(socket, sessionHandlers, {
                 connected: getConnectedUsernames(sessionHandlers).length > 0,
                 error: 'Lutfen en az bir yayinci kullanici adi girin'
+            });
+            return;
+        }
+
+        const currentState = liveSocketStates.get(socket.id);
+        const sessionUserEmail = String(currentState?.userEmail || '').trim().toLowerCase();
+        if (!sessionUserEmail) {
+            emitSocketStatus(socket, sessionHandlers, {
+                error: 'Hesap dogrulama tamamlanmadi. Lutfen 2-3 saniye bekleyip tekrar deneyin.'
+            });
+            return;
+        }
+
+        const otherActiveSocket = findOtherActiveSocketForUser(sessionUserEmail, socket.id);
+        if (otherActiveSocket) {
+            emitSocketStatus(socket, sessionHandlers, {
+                concurrentSessionBlocked: true,
+                error: `Bu hesap zaten baska bir sekmede aktif bagli (socket: ${otherActiveSocket.socketId}). Ayni hesaptan ayni anda sadece 1 yayin baglantisina izin verilir.`
             });
             return;
         }

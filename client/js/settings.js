@@ -143,6 +143,30 @@ class SettingsPanel {
                             </div>
                             <div class="setting-row">
                                 <div class="setting-label">
+                                    <label>❤️ Can Yazisi Goster</label>
+                                    <span class="setting-hint">Beyblade altinda kalpli can/metin gosterimi</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settingShowHpText" ${this.giftConfig.showHpText !== false ? 'checked' : ''}>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row" id="settingHpTextColorRow">
+                                <div class="setting-label">
+                                    <label>🎨 Can Yazisi Rengi</label>
+                                    <span class="setting-hint">Kalpli can yazisinin rengi</span>
+                                </div>
+                                <input type="color" id="settingHpTextColor" value="${/^#[0-9a-fA-F]{6}$/.test(String(this.giftConfig.hpTextColor || '')) ? this.giftConfig.hpTextColor : '#ff4d6d'}">
+                            </div>
+                            <div class="setting-row" id="settingHpTextSizeRow">
+                                <div class="setting-label">
+                                    <label>🔠 Can Yazisi Boyutu</label>
+                                    <span class="setting-hint">0.6 (kucuk) → 2.0 (buyuk)</span>
+                                </div>
+                                <input type="number" id="settingHpTextSizeScale" min="0.6" max="2" step="0.1" value="${Math.max(0.6, Math.min(2, Number(this.giftConfig.hpTextSizeScale) || 1)).toFixed(1)}">
+                            </div>
+                            <div class="setting-row">
+                                <div class="setting-label">
                                     <label>🛡️ Kalkan Süresi</label>
                                     <span class="setting-hint">Dokunulmazlık süresi (saniye)</span>
                                 </div>
@@ -518,6 +542,7 @@ class SettingsPanel {
         const profileBlurSlider = this.overlay.querySelector('#settingProfileBlur');
         const giftDelaySlider = this.overlay.querySelector('#settingGiftDelay');
         const sizeLimitToggle = this.overlay.querySelector('#settingSizeLimitEnabled');
+        const hpTextToggle = this.overlay.querySelector('#settingShowHpText');
         const arenaNotificationsToggle = this.overlay.querySelector('#settingArenaNotificationsEnabled');
         profileBlurSlider?.addEventListener('input', () => {
             this._syncCompliancePreview();
@@ -525,6 +550,7 @@ class SettingsPanel {
         });
         giftDelaySlider?.addEventListener('input', () => this._syncCompliancePreview());
         sizeLimitToggle?.addEventListener('change', () => this._syncSizeLimitControls());
+        hpTextToggle?.addEventListener('change', () => this._syncHpTextControls());
         arenaNotificationsToggle?.addEventListener('change', () => this._syncNotificationControls());
 
         // Tab switching
@@ -559,6 +585,7 @@ class SettingsPanel {
 
         this._syncCompliancePreview();
         this._syncSizeLimitControls();
+        this._syncHpTextControls();
         this._syncNotificationControls();
     }
 
@@ -632,6 +659,22 @@ class SettingsPanel {
         if (row) {
             row.classList.toggle('is-disabled', !enabled);
         }
+    }
+
+    _syncHpTextControls() {
+        const toggle = this.overlay?.querySelector('#settingShowHpText');
+        if (!toggle) return;
+
+        const enabled = toggle.checked;
+        const colorInput = this.overlay?.querySelector('#settingHpTextColor');
+        const sizeInput = this.overlay?.querySelector('#settingHpTextSizeScale');
+        const colorRow = this.overlay?.querySelector('#settingHpTextColorRow');
+        const sizeRow = this.overlay?.querySelector('#settingHpTextSizeRow');
+
+        if (colorInput) colorInput.disabled = !enabled;
+        if (sizeInput) sizeInput.disabled = !enabled;
+        if (colorRow) colorRow.classList.toggle('is-disabled', !enabled);
+        if (sizeRow) sizeRow.classList.toggle('is-disabled', !enabled);
     }
 
     _syncNotificationControls() {
@@ -716,6 +759,9 @@ class SettingsPanel {
         setValue('#settingMaxSizeLevel', Math.max(1, Math.floor(Number(this.giftConfig.maxSizeLevel) || 10)));
         setValue('#settingProfilePicScale', this.giftConfig.profilePicScale);
         setChecked('#settingShowProfilePic', this.giftConfig.showProfilePicture !== false);
+        setChecked('#settingShowHpText', this.giftConfig.showHpText !== false);
+        setValue('#settingHpTextColor', /^#[0-9a-fA-F]{6}$/.test(String(this.giftConfig.hpTextColor || '')) ? this.giftConfig.hpTextColor : '#ff4d6d');
+        setValue('#settingHpTextSizeScale', Math.max(0.6, Math.min(2, Number(this.giftConfig.hpTextSizeScale) || 1)).toFixed(1));
         setValue('#settingShieldDuration', this.giftConfig.defaultShieldDuration);
         setValue('#settingWinnerCountdown', Math.max(1, Math.floor(Number(this.giftConfig.winnerCountdownSeconds) || 10)));
         setValue('#settingLikesPerSpawn', this.giftConfig.likesPerSpawn);
@@ -735,6 +781,7 @@ class SettingsPanel {
 
         this._syncCompliancePreview();
         this._syncSizeLimitControls();
+        this._syncHpTextControls();
         this._syncNotificationControls();
         this._applyProfileBlurToDom();
     }
@@ -1258,6 +1305,13 @@ class SettingsPanel {
         );
         this.giftConfig.profilePicScale = parseFloat(this.overlay.querySelector('#settingProfilePicScale').value) || 0.6;
         this.giftConfig.showProfilePicture = this.overlay.querySelector('#settingShowProfilePic')?.checked !== false;
+        this.giftConfig.showHpText = this.overlay.querySelector('#settingShowHpText')?.checked !== false;
+        const hpTextColorRaw = String(this.overlay.querySelector('#settingHpTextColor')?.value || '').trim();
+        this.giftConfig.hpTextColor = /^#[0-9a-fA-F]{6}$/.test(hpTextColorRaw) ? hpTextColorRaw : '#ff4d6d';
+        this.giftConfig.hpTextSizeScale = Math.max(
+            0.6,
+            Math.min(2, Number(this.overlay.querySelector('#settingHpTextSizeScale')?.value) || 1)
+        );
         this.giftConfig.profileBlurAmount = Math.max(0, Number(this.overlay.querySelector('#settingProfileBlur')?.value) || 0);
         this.giftConfig.giftDetectionDelaySeconds = Math.max(1, Math.floor(Number(this.overlay.querySelector('#settingGiftDelay')?.value) || 10));
         this.giftConfig.defaultShieldDuration = parseInt(this.overlay.querySelector('#settingShieldDuration').value) || 5;
@@ -1278,6 +1332,7 @@ class SettingsPanel {
         );
         this._syncCompliancePreview();
         this._syncSizeLimitControls();
+        this._syncHpTextControls();
         this._syncNotificationControls();
         this._applyProfileBlurToDom();
 

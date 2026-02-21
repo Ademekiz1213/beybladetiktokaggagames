@@ -576,6 +576,16 @@ function sanitizeRuntimeSettings(raw) {
         next.profilePicScale = Number(clampNumber(raw.profilePicScale, 0.2, 0.9, 0.6).toFixed(2));
     }
     if (raw.showProfilePicture !== undefined) next.showProfilePicture = Boolean(raw.showProfilePicture);
+    if (raw.showHpText !== undefined) next.showHpText = Boolean(raw.showHpText);
+    if (raw.hpTextColor !== undefined) {
+        const hpTextColor = String(raw.hpTextColor || '').trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(hpTextColor)) {
+            next.hpTextColor = hpTextColor;
+        }
+    }
+    if (raw.hpTextSizeScale !== undefined) {
+        next.hpTextSizeScale = Number(clampNumber(raw.hpTextSizeScale, 0.6, 2, 1).toFixed(2));
+    }
     if (raw.profileBlurAmount !== undefined) next.profileBlurAmount = clampInt(raw.profileBlurAmount, 0, 20, 0);
     if (raw.giftDetectionDelaySeconds !== undefined) {
         next.giftDetectionDelaySeconds = clampInt(raw.giftDetectionDelaySeconds, MIN_GIFT_DELAY_SECONDS, 120, DEFAULT_GIFT_DELAY_SECONDS);

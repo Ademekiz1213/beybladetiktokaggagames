@@ -316,16 +316,29 @@ class Beyblade {
         ctx.fill();
         ctx.shadowBlur = 0;
 
+        const config = window.game?.giftConfig;
+        const showHpText = !config || config.showHpText !== false;
+        if (!showHpText) return;
+
         // Numeric HP text under the bar
         const hpText = `${Math.max(0, Math.ceil(this.hp))}/${Math.max(1, Math.ceil(this.maxHp))}`;
-        ctx.font = `bold ${Math.max(9, r * 0.2)}px Inter`;
+        const hpColorRaw = String(config?.hpTextColor || '').trim();
+        const hpTextColor = /^#[0-9a-fA-F]{6}$/.test(hpColorRaw) ? hpColorRaw : '#ff4d6d';
+        const sizeScale = Math.max(0.6, Math.min(2, Number(config?.hpTextSizeScale) || 1));
+        const fontPx = Math.max(10, r * 0.22 * sizeScale);
+        const hpLabel = `❤ ${hpText}`;
+
+        ctx.font = `900 ${fontPx}px Inter`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = 'rgba(5, 8, 18, 0.9)';
-        ctx.fillStyle = 'rgba(235, 244, 255, 0.95)';
-        ctx.strokeText(hpText, 0, barY + barHeight + 3);
-        ctx.fillText(hpText, 0, barY + barHeight + 3);
+        ctx.lineWidth = Math.max(2, fontPx * 0.18);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.92)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = Math.max(4, fontPx * 0.2);
+        ctx.fillStyle = hpTextColor;
+        ctx.strokeText(hpLabel, 0, barY + barHeight + 4);
+        ctx.fillText(hpLabel, 0, barY + barHeight + 4);
+        ctx.shadowBlur = 0;
     }
 
     _easeOutBack(t) {

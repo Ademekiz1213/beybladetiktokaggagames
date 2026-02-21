@@ -13,6 +13,9 @@ class GiftConfig {
         this.maxSizeLevel = 10;
         this.profilePicScale = 0.6;
         this.showProfilePicture = true;
+        this.showHpText = true;
+        this.hpTextColor = '#ff4d6d';
+        this.hpTextSizeScale = 1;
         this.profileBlurAmount = 0;
         this.giftDetectionDelaySeconds = 10;
         this.winnerCountdownSeconds = 10;
@@ -114,6 +117,9 @@ class GiftConfig {
             maxSizeLevel: this.maxSizeLevel,
             profilePicScale: this.profilePicScale,
             showProfilePicture: this.showProfilePicture,
+            showHpText: this.showHpText,
+            hpTextColor: this.hpTextColor,
+            hpTextSizeScale: this.hpTextSizeScale,
             profileBlurAmount: this.profileBlurAmount,
             giftDetectionDelaySeconds: this.giftDetectionDelaySeconds,
             winnerCountdownSeconds: this.winnerCountdownSeconds,
@@ -141,6 +147,17 @@ class GiftConfig {
         if (data.maxSizeLevel !== undefined) this.maxSizeLevel = Math.max(1, Math.min(200, Math.floor(Number(data.maxSizeLevel) || 10)));
         if (data.profilePicScale !== undefined) this.profilePicScale = data.profilePicScale;
         if (data.showProfilePicture !== undefined) this.showProfilePicture = Boolean(data.showProfilePicture);
+        if (data.showHpText !== undefined) this.showHpText = Boolean(data.showHpText);
+        if (data.hpTextColor !== undefined) {
+            const normalized = String(data.hpTextColor || '').trim();
+            this.hpTextColor = /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : '#ff4d6d';
+        }
+        if (data.hpTextSizeScale !== undefined) {
+            const parsed = Number(data.hpTextSizeScale);
+            if (Number.isFinite(parsed)) {
+                this.hpTextSizeScale = Math.max(0.6, Math.min(2, parsed));
+            }
+        }
         if (data.profileBlurAmount !== undefined) this.profileBlurAmount = Math.max(0, Number(data.profileBlurAmount) || 0);
         if (data.giftDetectionDelaySeconds !== undefined) this.giftDetectionDelaySeconds = Math.max(1, Math.floor(Number(data.giftDetectionDelaySeconds) || 10));
         if (data.winnerCountdownSeconds !== undefined) {

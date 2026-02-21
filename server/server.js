@@ -30,6 +30,9 @@ const BASE_FAILURE_COOLDOWN_MS = envInt('BASE_FAILURE_COOLDOWN_MS', 30_000);
 const MAX_FAILURE_COOLDOWN_MS = envInt('MAX_FAILURE_COOLDOWN_MS', 10 * 60_000);
 const MANUAL_RECONNECT_COOLDOWN_MS = envInt('MANUAL_RECONNECT_COOLDOWN_MS', 10_000);
 const DISCONNECT_RECONNECT_COOLDOWN_MS = envInt('DISCONNECT_RECONNECT_COOLDOWN_MS', 45_000);
+const AUTO_RECONNECT_BASE_MS = Math.max(1_000, envInt('AUTO_RECONNECT_BASE_MS', 5_000));
+const AUTO_RECONNECT_MAX_MS = Math.max(AUTO_RECONNECT_BASE_MS, envInt('AUTO_RECONNECT_MAX_MS', 45_000));
+const MAX_AUTO_RECONNECT_ATTEMPTS = envInt('MAX_AUTO_RECONNECT_ATTEMPTS', 10);
 const MAX_GLOBAL_ACTIVE_STREAMERS = envInt('MAX_GLOBAL_ACTIVE_STREAMERS', 40);
 const MIN_GIFT_DELAY_SECONDS = envInt('MIN_GIFT_DELAY_SECONDS', 1);
 const DEFAULT_GIFT_DELAY_SECONDS = Math.max(
@@ -728,6 +731,7 @@ io.on('connection', (socket) => {
     const pendingConnectTimers = new Map(); // streamerKey -> timeout
     const pendingConnects = new Set(); // streamerKey
     const pendingGiftEmitTimers = new Map(); // timeout -> streamerKey
+    const autoReconnectStates = new Map(); // streamerKey -> { attempts, delayMs, timer }
     let giftDelaySeconds = DEFAULT_GIFT_DELAY_SECONDS;
     let connectRequestTimestamps = []; // request timestamps for this socket
 
@@ -809,6 +813,118 @@ io.on('connection', (socket) => {
         pendingConnects.delete(streamerKey);
     }
 
+    function clearAutoReconnect(streamerKey) {
+        const state = autoReconnectStates.get(streamerKey);
+        if (state?.timer) {
+            clearTimeout(state.timer);
+        }
+        autoReconnectStates.delete(streamerKey);
+    }
+
+    function getAutoReconnectDelayMs(attempt) {
+        const safeAttempt = Math.max(1, Math.floor(Number(attempt) || 1));
+        const multiplier = Math.pow(2, Math.max(0, safeAttempt - 1));
+        return Math.min(AUTO_RECONNECT_MAX_MS, AUTO_RECONNECT_BASE_MS * multiplier);
+    }
+
+    function scheduleAutoReconnect(streamerKey, handler) {
+        if (!handler || handler._released) {
+            return { scheduled: false };
+        }
+
+        const currentHandler = sessionHandlers.get(streamerKey);
+        if (currentHandler !== handler) {
+            return { scheduled: false };
+        }
+
+        const existing = autoReconnectStates.get(streamerKey);
+        if (existing?.timer) {
+            return {
+                scheduled: true,
+                attempt: existing.attempts,
+                delayMs: existing.delayMs
+            };
+        }
+
+        const previousAttempts = Number(existing?.attempts || 0);
+        const nextAttempt = previousAttempts + 1;
+        if (MAX_AUTO_RECONNECT_ATTEMPTS > 0 && nextAttempt > MAX_AUTO_RECONNECT_ATTEMPTS) {
+            clearAutoReconnect(streamerKey);
+            return {
+                scheduled: false,
+                exhausted: true,
+                attempts: previousAttempts
+            };
+        }
+
+        const delayMs = getAutoReconnectDelayMs(nextAttempt);
+        const reconnectState = {
+            attempts: nextAttempt,
+            delayMs,
+            timer: null
+        };
+
+        const timer = setTimeout(() => {
+            const latestState = autoReconnectStates.get(streamerKey);
+            if (!latestState || latestState.timer !== timer) {
+                return;
+            }
+
+            latestState.timer = null;
+            autoReconnectStates.set(streamerKey, latestState);
+
+            if (!socket.connected) {
+                return;
+            }
+
+            const current = sessionHandlers.get(streamerKey);
+            if (current !== handler || handler._released) {
+                return;
+            }
+
+            const globalActiveCount = getGlobalActiveStreamerCount();
+            if (globalActiveCount >= MAX_GLOBAL_ACTIVE_STREAMERS) {
+                const queuedAgain = scheduleAutoReconnect(streamerKey, handler);
+                emitSocketStatus(socket, sessionHandlers, {
+                    username: handler.username,
+                    connecting: true,
+                    queued: true,
+                    autoReconnect: true,
+                    retryAfterMs: queuedAgain.delayMs || AUTO_RECONNECT_BASE_MS,
+                    reconnectAttempt: queuedAgain.attempt || latestState.attempts,
+                    error: `Sunucu baglanti limiti dolu. ${formatRetryAfterMs(queuedAgain.delayMs || AUTO_RECONNECT_BASE_MS)} sonra tekrar denenecek.`
+                });
+                return;
+            }
+
+            const sameStreamerActive = Number(globalConnectedStreamerCount.get(streamerKey) || 0);
+            if (sameStreamerActive > 0) {
+                const queuedAgain = scheduleAutoReconnect(streamerKey, handler);
+                emitSocketStatus(socket, sessionHandlers, {
+                    username: handler.username,
+                    connecting: true,
+                    queued: true,
+                    autoReconnect: true,
+                    retryAfterMs: queuedAgain.delayMs || AUTO_RECONNECT_BASE_MS,
+                    reconnectAttempt: queuedAgain.attempt || latestState.attempts,
+                    error: `${handler.username} su anda baska bir sekmede bagli. ${formatRetryAfterMs(queuedAgain.delayMs || AUTO_RECONNECT_BASE_MS)} sonra tekrar denenecek.`
+                });
+                return;
+            }
+
+            handler.connect();
+        }, delayMs);
+
+        reconnectState.timer = timer;
+        autoReconnectStates.set(streamerKey, reconnectState);
+
+        return {
+            scheduled: true,
+            attempt: nextAttempt,
+            delayMs
+        };
+    }
+
     function queueGiftEventForSocket(eventName, eventData = {}) {
         const streamerKey = String(eventData?.streamerKey || '').toLowerCase();
         const delayMs = Math.max(0, normalizeGiftDelaySeconds(giftDelaySeconds) * 1000);
@@ -856,6 +972,7 @@ io.on('connection', (socket) => {
 
         handler._released = true;
         clearPendingConnect(streamerKey);
+        clearAutoReconnect(streamerKey);
         clearPendingGiftEventsForStreamer(streamerKey);
 
         if (handler._countedGlobally) {
@@ -952,6 +1069,7 @@ io.on('connection', (socket) => {
                 const statusPayload = { ...status };
 
                 if (statusPayload.connected) {
+                    clearAutoReconnect(streamerKey);
                     failedConnectAttempts.delete(streamerKey);
                     streamerCooldowns.delete(streamerKey);
                     if (!handler._countedGlobally) {
@@ -968,13 +1086,39 @@ io.on('connection', (socket) => {
                         handler._countedGlobally = false;
                     }
 
-                    const current = sessionHandlers.get(streamerKey);
-                    if (current === handler) {
-                        sessionHandlers.delete(streamerKey);
-                    }
-
                     const shouldCountFailure = !handler.hasEverConnected && !status.disconnectedByUser;
-                    if (shouldCountFailure) {
+                    const shouldAutoReconnect = (
+                        handler.hasEverConnected
+                        && !status.disconnectedByUser
+                        && !status.streamEnded
+                    );
+
+                    if (shouldAutoReconnect) {
+                        const reconnect = scheduleAutoReconnect(streamerKey, handler);
+                        if (reconnect.scheduled) {
+                            statusPayload.connecting = true;
+                            statusPayload.queued = true;
+                            statusPayload.autoReconnect = true;
+                            statusPayload.retryAfterMs = reconnect.delayMs;
+                            statusPayload.reconnectAttempt = reconnect.attempt;
+                            statusPayload.error = status.error || `${handler.username} baglantisi koptu. Otomatik yeniden baglaniyor.`;
+                        } else {
+                            const current = sessionHandlers.get(streamerKey);
+                            if (current === handler) {
+                                sessionHandlers.delete(streamerKey);
+                            }
+                            setStreamerCooldown(streamerKey, DISCONNECT_RECONNECT_COOLDOWN_MS, 'auto_reconnect_limit');
+                            statusPayload.connectBlocked = true;
+                            statusPayload.error = `${handler.username} baglantisi cok sik koptu. Otomatik yeniden baglanma limiti doldu.`;
+                            statusPayload.retryAfterMs = DISCONNECT_RECONNECT_COOLDOWN_MS;
+                        }
+                    } else if (shouldCountFailure) {
+                        clearAutoReconnect(streamerKey);
+                        const current = sessionHandlers.get(streamerKey);
+                        if (current === handler) {
+                            sessionHandlers.delete(streamerKey);
+                        }
+
                         const previous = failedConnectAttempts.get(streamerKey) || {
                             count: 0,
                             blocked: false,
@@ -1005,9 +1149,17 @@ io.on('connection', (socket) => {
                             statusPayload.retryAfterMs = cooldownMs;
                             statusPayload.error = `${handler.username} baglantisi basarisiz. ${formatRetryAfterMs(cooldownMs)} sonra tekrar deneyin.`;
                         }
-                    } else if (!status.disconnectedByUser) {
-                        setStreamerCooldown(streamerKey, DISCONNECT_RECONNECT_COOLDOWN_MS, 'disconnect');
-                        statusPayload.retryAfterMs = DISCONNECT_RECONNECT_COOLDOWN_MS;
+                    } else {
+                        clearAutoReconnect(streamerKey);
+                        const current = sessionHandlers.get(streamerKey);
+                        if (current === handler) {
+                            sessionHandlers.delete(streamerKey);
+                        }
+
+                        if (!status.disconnectedByUser && !status.streamEnded) {
+                            setStreamerCooldown(streamerKey, DISCONNECT_RECONNECT_COOLDOWN_MS, 'disconnect');
+                            statusPayload.retryAfterMs = DISCONNECT_RECONNECT_COOLDOWN_MS;
+                        }
                     }
                 }
 
@@ -1298,6 +1450,9 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         disconnectAllStreamersForSocket();
         clearAllPendingGiftEvents();
+        for (const streamerKey of Array.from(autoReconnectStates.keys())) {
+            clearAutoReconnect(streamerKey);
+        }
         failedConnectAttempts.clear();
         streamerCooldowns.clear();
         connectRequestTimestamps = [];

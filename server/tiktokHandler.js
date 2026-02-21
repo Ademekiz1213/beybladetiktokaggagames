@@ -11,6 +11,7 @@ class TikTokHandler {
 
         this.connection = null;
         this.isConnected = false;
+        this.isConnecting = false;
         this.hasEverConnected = false;
         this.likeCounters = {}; // viewerId -> accumulated likes
     }
@@ -119,11 +120,16 @@ class TikTokHandler {
     }
 
     async connect() {
-        if (this.connection && typeof this.connection.disconnect === 'function') {
+        if (this.connection) {
             try {
-                this.connection.disconnect();
-            } catch (disconnectError) {
-                console.warn(`[TikTok] Previous connection cleanup failed [${this.username}]:`, disconnectError?.message || disconnectError);
+                if (typeof this.connection.removeAllListeners === 'function') {
+                    this.connection.removeAllListeners();
+                }
+                if (typeof this.connection.disconnect === 'function') {
+                    this.connection.disconnect();
+                }
+            } catch (cleanupError) {
+                console.warn(`[TikTok] Previous connection cleanup failed [${this.username}]:`, cleanupError?.message || cleanupError);
             }
         }
 
@@ -131,6 +137,8 @@ class TikTokHandler {
             enableExtendedGiftInfo: true
         });
         this._setupEventListeners();
+        this.isConnected = false;
+        this.isConnecting = true;
 
         this._emitStatus({
             connected: false,
@@ -141,6 +149,7 @@ class TikTokHandler {
             const state = await this.connection.connect();
             const roomId = this._resolveRoomId(state);
             this.isConnected = true;
+            this.isConnecting = false;
             this.hasEverConnected = true;
             console.log(`[TikTok] Connected to ${this.username} | Room ID: ${roomId || 'unknown'}`);
 
@@ -151,6 +160,7 @@ class TikTokHandler {
             });
         } catch (err) {
             this.isConnected = false;
+            this.isConnecting = false;
             const errorMessage = this._resolveErrorMessage(err, 'Baglanti kurulamadi');
             console.error('[TikTok] Connection failed:', errorMessage);
 
@@ -281,10 +291,12 @@ class TikTokHandler {
         this.connection.on('streamEnd', () => {
             console.log(`[TikTok] Stream ended [${this.username}]`);
             this.isConnected = false;
+            this.isConnecting = false;
 
             this._emitStatus({
                 connected: false,
                 connecting: false,
+                streamEnded: true,
                 error: 'Yayin sona erdi'
             });
         });
@@ -293,6 +305,7 @@ class TikTokHandler {
         this.connection.on('disconnected', (reason) => {
             console.log(`[TikTok] Disconnected [${this.username}]`);
             this.isConnected = false;
+            this.isConnecting = false;
             const errorMessage = this._resolveErrorMessage(reason, 'Baglanti kesildi');
 
             this._emitStatus({
@@ -308,7 +321,7 @@ class TikTokHandler {
             console.error(`[TikTok] Error [${this.username}]:`, errorMessage);
             this._emitStatus({
                 connected: this.isConnected,
-                connecting: false,
+                connecting: this.isConnecting,
                 error: errorMessage
             });
         });
@@ -327,6 +340,7 @@ class TikTokHandler {
         }
 
         this.isConnected = false;
+        this.isConnecting = false;
         this.likeCounters = {};
         this.connection = null;
         console.log(`[TikTok] Disconnected manually [${this.username}]`);

@@ -323,21 +323,8 @@ class Game {
                         activeBlade = this._spawnBeyblade(data);
                     }
                     if (activeBlade && activeBlade.alive) {
-                        const hpWasFull = activeBlade.hp >= (activeBlade.maxHp - 0.001);
-                        if (hpWasFull) {
-                            activeBlade.increaseMaxHp(totalAmount, true);
-                            this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `MAX HP +${totalAmount}`, '#22d67a');
-                        } else {
-                            activeBlade.fillHpToMax();
-                            this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, 'HP FULL', '#22d67a');
-
-                            // Combo gifts: first gift fills HP, remaining gifts increase max HP.
-                            const bonusMaxHp = baseAmount * Math.max(0, repeatCount - 1);
-                            if (bonusMaxHp > 0) {
-                                activeBlade.increaseMaxHp(bonusMaxHp, true);
-                                this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `MAX HP +${bonusMaxHp}`, '#22d67a');
-                            }
-                        }
+                        activeBlade.increaseMaxHp(totalAmount, true);
+                        this.effects.spawnUpgradeEffect(activeBlade.x, activeBlade.y, `MAX HP +${totalAmount}`, '#22d67a');
                     }
                     break;
 

@@ -6,6 +6,9 @@ class SocketManager {
         this.sessionUserPayload = null;
         this.giftDetectionDelaySeconds = 10;
         this.giftCatalogSnapshot = null;
+        this.runtimeStateProvider = null;
+        this.runtimeStateSyncTimer = null;
+        this.runtimeStateSyncIntervalMs = 5000;
 
         window.addEventListener('auth-ready', (event) => {
             const user = event?.detail?.user || null;
@@ -20,6 +23,7 @@ class SocketManager {
             console.log('[Socket] Connected to server');
             this._emitSessionUserIfPossible();
             this._emitGiftDelayIfPossible();
+            this._emitRuntimeStateIfPossible();
             this._trigger('socket-connected');
         });
 
@@ -72,6 +76,10 @@ class SocketManager {
             this._mergeGiftCatalogUpdate(data);
             this._trigger('gift-catalog-updated', data);
         });
+
+        this.socket.on('admin-apply-settings', (data) => {
+            this._trigger('admin-apply-settings', data);
+        });
     }
 
     connectTikTok(username) {
@@ -104,6 +112,18 @@ class SocketManager {
         const parsed = Number(seconds);
         this.giftDetectionDelaySeconds = Math.max(1, Number.isFinite(parsed) ? Math.floor(parsed) : 10);
         this._emitGiftDelayIfPossible();
+    }
+
+    setRuntimeStateProvider(provider, intervalMs = 5000) {
+        this.runtimeStateProvider = typeof provider === 'function' ? provider : null;
+        const parsedInterval = Number(intervalMs);
+        this.runtimeStateSyncIntervalMs = Math.max(
+            1000,
+            Number.isFinite(parsedInterval) ? Math.floor(parsedInterval) : 5000
+        );
+
+        this._restartRuntimeStateSync();
+        this._emitRuntimeStateIfPossible();
     }
 
     on(event, handler) {
@@ -140,6 +160,33 @@ class SocketManager {
         this.socket.emit('set-gift-delay', {
             giftDetectionDelaySeconds: this.giftDetectionDelaySeconds
         });
+    }
+
+    _restartRuntimeStateSync() {
+        if (this.runtimeStateSyncTimer) {
+            clearInterval(this.runtimeStateSyncTimer);
+            this.runtimeStateSyncTimer = null;
+        }
+
+        if (!this.runtimeStateProvider) return;
+
+        this.runtimeStateSyncTimer = setInterval(() => {
+            this._emitRuntimeStateIfPossible();
+        }, this.runtimeStateSyncIntervalMs);
+    }
+
+    _emitRuntimeStateIfPossible() {
+        if (!this.socket || !this.socket.connected || typeof this.runtimeStateProvider !== 'function') {
+            return;
+        }
+
+        try {
+            const payload = this.runtimeStateProvider();
+            if (!payload || typeof payload !== 'object') return;
+            this.socket.emit('client-runtime-state', payload);
+        } catch (error) {
+            console.warn('[Socket] Runtime state emit failed:', error);
+        }
     }
 
     _mergeGiftCatalogUpdate(payload) {

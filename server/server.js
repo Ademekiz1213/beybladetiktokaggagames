@@ -161,6 +161,9 @@ app.get('/api/admin/live-streamers', async (req, res) => {
                 trackedUsernames: Array.isArray(entry.trackedUsernames) ? entry.trackedUsernames : [],
                 connectedCount: Number(entry.connectedCount || 0),
                 trackedCount: Number(entry.trackedCount || 0),
+                clientRuntimeState: entry.clientRuntimeState && typeof entry.clientRuntimeState === 'object'
+                    ? entry.clientRuntimeState
+                    : null,
                 updatedAt: entry.updatedAt || null
             }))
             .sort((a, b) => {
@@ -185,6 +188,82 @@ app.get('/api/admin/live-streamers', async (req, res) => {
         });
     } catch (error) {
         console.error('[Admin] /live-streamers failed:', error);
+        return res.status(500).json({ ok: false, error: 'Internal error' });
+    }
+});
+
+app.post('/api/admin/live-streamers/:socketId/settings', async (req, res) => {
+    try {
+        const user = await resolveRequestUser(req);
+        if (!user) {
+            return res.status(401).json({ ok: false, error: 'Unauthorized' });
+        }
+
+        if (!isAdminEmail(user.email)) {
+            return res.status(403).json({ ok: false, error: 'Forbidden' });
+        }
+
+        const socketId = String(req.params?.socketId || '').trim();
+        if (!socketId) {
+            return res.status(400).json({ ok: false, error: 'socketId is required' });
+        }
+
+        const rawSettings = req.body?.settings && typeof req.body.settings === 'object'
+            ? req.body.settings
+            : (req.body && typeof req.body === 'object' ? req.body : {});
+        const settings = sanitizeRuntimeSettings(rawSettings);
+        const changedKeys = Object.keys(settings);
+        if (changedKeys.length === 0) {
+            return res.status(400).json({ ok: false, error: 'No valid settings provided' });
+        }
+
+        const targetSocket = io.sockets.sockets.get(socketId);
+        if (!targetSocket) {
+            return res.status(404).json({ ok: false, error: 'Target socket not found or disconnected' });
+        }
+
+        const updatedAt = new Date().toISOString();
+        const sentByName = await resolveAdminSenderName(user.email);
+
+        targetSocket.emit('admin-apply-settings', {
+            settings,
+            updatedAt,
+            updatedByEmail: user.email,
+            updatedByName: sentByName || user.email
+        });
+
+        const current = liveSocketStates.get(socketId);
+        if (current) {
+            const previousRuntime = current.clientRuntimeState && typeof current.clientRuntimeState === 'object'
+                ? current.clientRuntimeState
+                : {};
+            const previousSettings = previousRuntime.settings && typeof previousRuntime.settings === 'object'
+                ? previousRuntime.settings
+                : {};
+
+            liveSocketStates.set(socketId, {
+                ...current,
+                clientRuntimeState: {
+                    ...previousRuntime,
+                    settings: {
+                        ...previousSettings,
+                        ...settings
+                    },
+                    updatedAt
+                },
+                updatedAt
+            });
+        }
+
+        return res.json({
+            ok: true,
+            socketId,
+            changedKeys,
+            settings,
+            updatedAt
+        });
+    } catch (error) {
+        console.error('[Admin] /live-streamers/:socketId/settings failed:', error);
         return res.status(500).json({ ok: false, error: 'Internal error' });
     }
 });
@@ -447,6 +526,113 @@ function normalizeGiftDelaySeconds(value) {
     return Math.max(MIN_GIFT_DELAY_SECONDS, Math.floor(parsed));
 }
 
+function clampInt(value, min, max, fallback) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    const safe = Math.floor(parsed);
+    return Math.min(max, Math.max(min, safe));
+}
+
+function clampNumber(value, min, max, fallback) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
+
+function sanitizeRuntimeSettings(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+
+    const next = {};
+
+    if (raw.defaultHp !== undefined) next.defaultHp = clampInt(raw.defaultHp, 10, 9999, 200);
+    if (raw.defaultAttack !== undefined) next.defaultAttack = clampInt(raw.defaultAttack, 1, 999, 10);
+    if (raw.defaultSize !== undefined) next.defaultSize = clampInt(raw.defaultSize, 1, 10, 1);
+    if (raw.profilePicScale !== undefined) {
+        next.profilePicScale = Number(clampNumber(raw.profilePicScale, 0.2, 0.9, 0.6).toFixed(2));
+    }
+    if (raw.showProfilePicture !== undefined) next.showProfilePicture = Boolean(raw.showProfilePicture);
+    if (raw.profileBlurAmount !== undefined) next.profileBlurAmount = clampInt(raw.profileBlurAmount, 0, 20, 0);
+    if (raw.giftDetectionDelaySeconds !== undefined) {
+        next.giftDetectionDelaySeconds = clampInt(raw.giftDetectionDelaySeconds, MIN_GIFT_DELAY_SECONDS, 120, DEFAULT_GIFT_DELAY_SECONDS);
+    }
+    if (raw.defaultShieldDuration !== undefined) next.defaultShieldDuration = clampInt(raw.defaultShieldDuration, 1, 60, 5);
+    if (raw.winnerCountdownSeconds !== undefined) next.winnerCountdownSeconds = clampInt(raw.winnerCountdownSeconds, 1, 120, 10);
+    if (raw.likesPerSpawn !== undefined) next.likesPerSpawn = clampInt(raw.likesPerSpawn, 1, 1000, 50);
+    if (raw.likeHealAmount !== undefined) next.likeHealAmount = clampInt(raw.likeHealAmount, 1, 100, 10);
+    if (raw.enableRandomLikeBonus !== undefined) next.enableRandomLikeBonus = Boolean(raw.enableRandomLikeBonus);
+    if (raw.followSpawnEnabled !== undefined) next.followSpawnEnabled = Boolean(raw.followSpawnEnabled);
+
+    if (raw.selectedSkin !== undefined) {
+        const selectedSkin = String(raw.selectedSkin || '').trim();
+        if (selectedSkin) next.selectedSkin = selectedSkin.slice(0, 64);
+    }
+    if (raw.arenaTheme !== undefined) {
+        const arenaTheme = String(raw.arenaTheme || '').trim();
+        if (arenaTheme) next.arenaTheme = arenaTheme.slice(0, 64);
+    }
+    if (raw.arenaShape !== undefined) {
+        const arenaShape = String(raw.arenaShape || '').trim().toLowerCase();
+        if (arenaShape === 'circle' || arenaShape === 'rectangle') {
+            next.arenaShape = arenaShape;
+        }
+    }
+
+    return next;
+}
+
+function sanitizeRuntimePlayers(raw) {
+    if (!raw || typeof raw !== 'object') {
+        return {
+            aliveCount: 0,
+            totalCount: 0,
+            players: []
+        };
+    }
+
+    const aliveCount = clampInt(raw.aliveCount, 0, 10_000, 0);
+    const totalCount = clampInt(raw.totalCount, 0, 10_000, aliveCount);
+    const players = Array.isArray(raw.players) ? raw.players : [];
+
+    const nextPlayers = players
+        .slice(0, 25)
+        .map((player) => {
+            const nickname = String(player?.nickname || '').trim();
+            const uniqueId = String(player?.uniqueId || '').trim();
+            if (!nickname || !uniqueId) return null;
+
+            return {
+                nickname: nickname.slice(0, 40),
+                uniqueId: uniqueId.slice(0, 80),
+                hp: clampInt(player?.hp, 0, 99_999, 0),
+                maxHp: clampInt(player?.maxHp, 1, 99_999, 1),
+                attack: clampInt(player?.attack, 0, 9_999, 0),
+                sizeLevel: clampInt(player?.sizeLevel, 1, 999, 1)
+            };
+        })
+        .filter(Boolean);
+
+    return {
+        aliveCount,
+        totalCount: Math.max(aliveCount, totalCount),
+        players: nextPlayers
+    };
+}
+
+function sanitizeClientRuntimeState(payload) {
+    if (!payload || typeof payload !== 'object') return null;
+
+    const settingsSource = payload.settings && typeof payload.settings === 'object'
+        ? payload.settings
+        : (payload.giftConfig && typeof payload.giftConfig === 'object' ? payload.giftConfig : {});
+
+    return {
+        settings: sanitizeRuntimeSettings(settingsSource),
+        activePlayers: sanitizeRuntimePlayers(payload.activePlayers),
+        gameState: String(payload.gameState || '').trim().slice(0, 24) || null,
+        updatedAt: new Date().toISOString()
+    };
+}
+
 function updateLiveSocketState(socket, handlers, payload = {}) {
     const socketId = socket?.id;
     if (!socketId) return;
@@ -459,6 +645,7 @@ function updateLiveSocketState(socket, handlers, payload = {}) {
         trackedUsernames: [],
         connectedCount: 0,
         trackedCount: 0,
+        clientRuntimeState: null,
         updatedAt: null
     };
 
@@ -513,6 +700,7 @@ io.on('connection', (socket) => {
         trackedUsernames: [],
         connectedCount: 0,
         trackedCount: 0,
+        clientRuntimeState: null,
         updatedAt: new Date().toISOString()
     });
 
@@ -955,6 +1143,20 @@ io.on('connection', (socket) => {
 
         emitSocketStatus(socket, sessionHandlers, {
             giftDetectionDelaySeconds: giftDelaySeconds
+        });
+    });
+
+    socket.on('client-runtime-state', (payload) => {
+        const runtimeState = sanitizeClientRuntimeState(payload);
+        if (!runtimeState) return;
+
+        const current = liveSocketStates.get(socket.id);
+        if (!current) return;
+
+        liveSocketStates.set(socket.id, {
+            ...current,
+            clientRuntimeState: runtimeState,
+            updatedAt: new Date().toISOString()
         });
     });
 

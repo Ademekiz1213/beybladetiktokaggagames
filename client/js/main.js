@@ -28,6 +28,94 @@ document.addEventListener('DOMContentLoaded', () => {
         window.uiManager = new window.UIManager();
     }
 
+    function buildAdminRuntimeState() {
+        const game = window.game;
+        const config = game?.giftConfig;
+        if (!game || !config) return null;
+
+        const alivePlayers = Array.isArray(game.beyblades)
+            ? game.beyblades.filter((blade) => blade && blade.alive)
+            : [];
+
+        const players = alivePlayers
+            .slice()
+            .sort((a, b) => (Number(b?.hp || 0) - Number(a?.hp || 0)))
+            .slice(0, 25)
+            .map((blade) => ({
+                nickname: String(blade.nickname || '').trim().slice(0, 40),
+                uniqueId: String(blade.uniqueId || '').trim().slice(0, 80),
+                hp: Math.max(0, Math.floor(Number(blade.hp) || 0)),
+                maxHp: Math.max(1, Math.floor(Number(blade.maxHp) || 1)),
+                attack: Math.max(0, Math.floor(Number(blade.attack) || 0)),
+                sizeLevel: Math.max(1, Math.floor(Number(blade.sizeLevel) || 1))
+            }))
+            .filter((entry) => entry.nickname && entry.uniqueId);
+
+        return {
+            gameState: String(game.state || 'idle'),
+            settings: {
+                defaultHp: config.defaultHp,
+                defaultAttack: config.defaultAttack,
+                defaultSize: config.defaultSize,
+                profilePicScale: config.profilePicScale,
+                showProfilePicture: config.showProfilePicture,
+                profileBlurAmount: config.profileBlurAmount,
+                giftDetectionDelaySeconds: config.giftDetectionDelaySeconds,
+                defaultShieldDuration: config.defaultShieldDuration,
+                winnerCountdownSeconds: config.winnerCountdownSeconds,
+                likesPerSpawn: config.likesPerSpawn,
+                likeHealAmount: config.likeHealAmount,
+                enableRandomLikeBonus: config.enableRandomLikeBonus,
+                followSpawnEnabled: config.followSpawnEnabled,
+                selectedSkin: config.selectedSkin,
+                arenaTheme: config.arenaTheme,
+                arenaShape: config.arenaShape
+            },
+            activePlayers: {
+                aliveCount: alivePlayers.length,
+                totalCount: Array.isArray(game.beyblades) ? game.beyblades.length : alivePlayers.length,
+                players
+            }
+        };
+    }
+
+    function applyAdminSettingsPatch(rawSettings) {
+        if (!rawSettings || typeof rawSettings !== 'object') return;
+        if (!window.game || !window.game.giftConfig) return;
+
+        const config = window.game.giftConfig;
+        const mergedConfig = {
+            ...config.toJSON(),
+            ...rawSettings
+        };
+        config.fromJSON(mergedConfig);
+        config.save();
+
+        if (window.socketManager && typeof window.socketManager.setGiftDetectionDelay === 'function') {
+            window.socketManager.setGiftDetectionDelay(config.giftDetectionDelaySeconds);
+        }
+
+        if (window.game?.arena) {
+            window.game.arena.setTheme(config.arenaTheme || 'cyber');
+            window.game.arena.setShape(config.arenaShape || 'circle');
+        }
+
+        if (Array.isArray(window.game?.beyblades)) {
+            window.game.beyblades.forEach((blade) => {
+                blade.skinId = config.selectedSkin || 'classic';
+            });
+        }
+
+        if (window.settingsPanel && typeof window.settingsPanel.syncFormWithConfig === 'function') {
+            window.settingsPanel.syncFormWithConfig();
+        }
+    }
+
+    window.socketManager.setRuntimeStateProvider(buildAdminRuntimeState, 5000);
+    window.socketManager.on('admin-apply-settings', (payload) => {
+        applyAdminSettingsPatch(payload?.settings);
+    });
+
     // Keep server-side gift delay in sync with local settings.
     window.socketManager.setGiftDetectionDelay(window.game.giftConfig.giftDetectionDelaySeconds);
 

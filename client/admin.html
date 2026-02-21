@@ -153,6 +153,87 @@
         </section>
     </main>
 
+    <div id="liveSettingsModal" class="admin-modal" style="display:none;">
+        <div class="admin-modal-card">
+            <div class="admin-modal-head">
+                <h3>Aktif Oyuncu Ayarlari</h3>
+                <button id="closeLiveSettingsModalBtn" class="btn btn-secondary btn-small" type="button">Kapat</button>
+            </div>
+
+            <p id="liveSettingsSocketInfo" class="auth-copy">Socket: -</p>
+
+            <div class="admin-row">
+                <div>
+                    <label for="liveSettingDefaultHp">Baslangic HP</label>
+                    <input id="liveSettingDefaultHp" type="number" min="10" max="9999">
+                </div>
+                <div>
+                    <label for="liveSettingDefaultAttack">Bazal Saldiri</label>
+                    <input id="liveSettingDefaultAttack" type="number" min="1" max="999">
+                </div>
+            </div>
+
+            <div class="admin-row">
+                <div>
+                    <label for="liveSettingDefaultSize">Baslangic Boyut</label>
+                    <input id="liveSettingDefaultSize" type="number" min="1" max="10">
+                </div>
+                <div>
+                    <label for="liveSettingShieldDuration">Kalkan Suresi</label>
+                    <input id="liveSettingShieldDuration" type="number" min="1" max="60">
+                </div>
+            </div>
+
+            <div class="admin-row">
+                <div>
+                    <label for="liveSettingWinnerCountdown">Kazanan Geri Sayim</label>
+                    <input id="liveSettingWinnerCountdown" type="number" min="1" max="120">
+                </div>
+                <div>
+                    <label for="liveSettingGiftDelay">Hediye Gecikmesi (sn)</label>
+                    <input id="liveSettingGiftDelay" type="number" min="1" max="120">
+                </div>
+            </div>
+
+            <div class="admin-row">
+                <div>
+                    <label for="liveSettingLikesPerSpawn">Begeni Esigi</label>
+                    <input id="liveSettingLikesPerSpawn" type="number" min="1" max="1000">
+                </div>
+                <div>
+                    <label for="liveSettingLikeHeal">Begeni Can Artisi</label>
+                    <input id="liveSettingLikeHeal" type="number" min="1" max="100">
+                </div>
+            </div>
+
+            <div class="admin-row">
+                <div>
+                    <label for="liveSettingProfileBlur">Profil Blur (px)</label>
+                    <input id="liveSettingProfileBlur" type="number" min="0" max="20">
+                </div>
+                <div>
+                    <label for="liveSettingProfilePicScale">Profil Resim Boyutu</label>
+                    <input id="liveSettingProfilePicScale" type="number" min="0.2" max="0.9" step="0.05">
+                </div>
+            </div>
+
+            <div class="admin-checkbox-row">
+                <label><input id="liveSettingShowProfilePicture" type="checkbox"> Profil resmi goster</label>
+                <label><input id="liveSettingLikeRandomBonus" type="checkbox"> Begeni rastgele bonus</label>
+                <label><input id="liveSettingFollowSpawnEnabled" type="checkbox"> Takip ile katilim</label>
+            </div>
+
+            <div>
+                <label for="liveSettingsPlayersList">Aktif Oyuncular</label>
+                <div id="liveSettingsPlayersList" class="admin-list admin-list-compact"></div>
+            </div>
+
+            <div class="admin-actions">
+                <button id="saveLiveSettingsBtn" class="btn btn-primary" type="button">Ayarlari Uygula</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/firebase-config.js"></script>
     <script type="module" src="js/admin.js"></script>
 </body>

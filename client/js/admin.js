@@ -36,6 +36,19 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+function toInt(value, fallback, min, max) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    const safe = Math.floor(parsed);
+    return Math.min(max, Math.max(min, safe));
+}
+
+function toFloat(value, fallback, min, max) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
+
 function setMessage(message, type = 'info') {
     const messageEl = document.getElementById('adminMessage');
     if (!messageEl) return;
@@ -172,6 +185,13 @@ function renderLiveConnections(payload) {
         const connected = Array.isArray(entry.connectedUsernames) ? entry.connectedUsernames : [];
         const tracked = Array.isArray(entry.trackedUsernames) ? entry.trackedUsernames : [];
         const trackedOnly = tracked.filter((username) => !connected.includes(username));
+        const runtimeState = entry?.clientRuntimeState && typeof entry.clientRuntimeState === 'object'
+            ? entry.clientRuntimeState
+            : null;
+        const activePlayers = runtimeState?.activePlayers && typeof runtimeState.activePlayers === 'object'
+            ? runtimeState.activePlayers
+            : null;
+        const activeCount = Number(activePlayers?.aliveCount || 0);
 
         const connectedChips = connected.length > 0
             ? connected.map((username) => `<span class="live-chip">${escapeHtml(username)}</span>`).join('')
@@ -190,10 +210,16 @@ function renderLiveConnections(payload) {
                 <div class="admin-item-meta">
                     <span>Canli: ${Number(entry.connectedCount || connected.length)}</span>
                     <span>Takipte: ${Number(entry.trackedCount || tracked.length)}</span>
+                    <span>Aktif Oyuncu: ${activeCount}</span>
                     <span>Guncelleme: ${formatDate(entry.updatedAt)}</span>
                 </div>
                 <div class="live-streamer-chips">${connectedChips}</div>
                 ${trackedChips ? `<div class="live-streamer-chips">${trackedChips}</div>` : ''}
+                <div class="admin-item-actions">
+                    <button type="button" class="btn btn-secondary btn-small live-settings-btn" data-socket-id="${escapeHtml(entry.socketId || '')}">
+                        Oyuncu Ayarlari
+                    </button>
+                </div>
             </div>
         `;
     }).join('');
@@ -237,17 +263,134 @@ function setAdminReadonlyState(readonly) {
         '#saveStartupAnnouncementBtn',
         '#disableStartupAnnouncementBtn',
         '#saveAnnouncementNameBtn',
+        '#saveLiveSettingsBtn',
         '#codeForm input',
         '#grantForm input',
         '#announceDisplayName',
         '#announceForm textarea',
         '#startupAnnouncementForm input',
-        '#startupAnnouncementForm textarea'
+        '#startupAnnouncementForm textarea',
+        '#liveSettingsModal input'
     ].join(', ');
 
     document.querySelectorAll(selector).forEach((element) => {
         element.disabled = readonly;
     });
+}
+
+const LIVE_SETTINGS_DEFAULTS = {
+    defaultHp: 200,
+    defaultAttack: 10,
+    defaultSize: 1,
+    defaultShieldDuration: 5,
+    winnerCountdownSeconds: 10,
+    giftDetectionDelaySeconds: 10,
+    likesPerSpawn: 50,
+    likeHealAmount: 10,
+    profileBlurAmount: 0,
+    profilePicScale: 0.6,
+    showProfilePicture: true,
+    enableRandomLikeBonus: true,
+    followSpawnEnabled: true
+};
+
+function readLiveSettingsFromEntry(entry) {
+    const runtimeSettings = entry?.clientRuntimeState?.settings && typeof entry.clientRuntimeState.settings === 'object'
+        ? entry.clientRuntimeState.settings
+        : {};
+
+    return {
+        defaultHp: toInt(runtimeSettings.defaultHp, LIVE_SETTINGS_DEFAULTS.defaultHp, 10, 9999),
+        defaultAttack: toInt(runtimeSettings.defaultAttack, LIVE_SETTINGS_DEFAULTS.defaultAttack, 1, 999),
+        defaultSize: toInt(runtimeSettings.defaultSize, LIVE_SETTINGS_DEFAULTS.defaultSize, 1, 10),
+        defaultShieldDuration: toInt(runtimeSettings.defaultShieldDuration, LIVE_SETTINGS_DEFAULTS.defaultShieldDuration, 1, 60),
+        winnerCountdownSeconds: toInt(runtimeSettings.winnerCountdownSeconds, LIVE_SETTINGS_DEFAULTS.winnerCountdownSeconds, 1, 120),
+        giftDetectionDelaySeconds: toInt(runtimeSettings.giftDetectionDelaySeconds, LIVE_SETTINGS_DEFAULTS.giftDetectionDelaySeconds, 1, 120),
+        likesPerSpawn: toInt(runtimeSettings.likesPerSpawn, LIVE_SETTINGS_DEFAULTS.likesPerSpawn, 1, 1000),
+        likeHealAmount: toInt(runtimeSettings.likeHealAmount, LIVE_SETTINGS_DEFAULTS.likeHealAmount, 1, 100),
+        profileBlurAmount: toInt(runtimeSettings.profileBlurAmount, LIVE_SETTINGS_DEFAULTS.profileBlurAmount, 0, 20),
+        profilePicScale: Number(toFloat(runtimeSettings.profilePicScale, LIVE_SETTINGS_DEFAULTS.profilePicScale, 0.2, 0.9).toFixed(2)),
+        showProfilePicture: runtimeSettings.showProfilePicture !== false,
+        enableRandomLikeBonus: runtimeSettings.enableRandomLikeBonus !== false,
+        followSpawnEnabled: runtimeSettings.followSpawnEnabled !== false
+    };
+}
+
+function fillLiveSettingsFormValues(settings) {
+    const setValue = (id, value) => {
+        const element = document.getElementById(id);
+        if (element) element.value = String(value);
+    };
+    const setChecked = (id, checked) => {
+        const element = document.getElementById(id);
+        if (element) element.checked = Boolean(checked);
+    };
+
+    setValue('liveSettingDefaultHp', settings.defaultHp);
+    setValue('liveSettingDefaultAttack', settings.defaultAttack);
+    setValue('liveSettingDefaultSize', settings.defaultSize);
+    setValue('liveSettingShieldDuration', settings.defaultShieldDuration);
+    setValue('liveSettingWinnerCountdown', settings.winnerCountdownSeconds);
+    setValue('liveSettingGiftDelay', settings.giftDetectionDelaySeconds);
+    setValue('liveSettingLikesPerSpawn', settings.likesPerSpawn);
+    setValue('liveSettingLikeHeal', settings.likeHealAmount);
+    setValue('liveSettingProfileBlur', settings.profileBlurAmount);
+    setValue('liveSettingProfilePicScale', settings.profilePicScale);
+    setChecked('liveSettingShowProfilePicture', settings.showProfilePicture);
+    setChecked('liveSettingLikeRandomBonus', settings.enableRandomLikeBonus);
+    setChecked('liveSettingFollowSpawnEnabled', settings.followSpawnEnabled);
+}
+
+function readLiveSettingsFormPayload() {
+    const valueOf = (id) => document.getElementById(id)?.value;
+    const checkedOf = (id) => Boolean(document.getElementById(id)?.checked);
+
+    return {
+        defaultHp: toInt(valueOf('liveSettingDefaultHp'), LIVE_SETTINGS_DEFAULTS.defaultHp, 10, 9999),
+        defaultAttack: toInt(valueOf('liveSettingDefaultAttack'), LIVE_SETTINGS_DEFAULTS.defaultAttack, 1, 999),
+        defaultSize: toInt(valueOf('liveSettingDefaultSize'), LIVE_SETTINGS_DEFAULTS.defaultSize, 1, 10),
+        defaultShieldDuration: toInt(valueOf('liveSettingShieldDuration'), LIVE_SETTINGS_DEFAULTS.defaultShieldDuration, 1, 60),
+        winnerCountdownSeconds: toInt(valueOf('liveSettingWinnerCountdown'), LIVE_SETTINGS_DEFAULTS.winnerCountdownSeconds, 1, 120),
+        giftDetectionDelaySeconds: toInt(valueOf('liveSettingGiftDelay'), LIVE_SETTINGS_DEFAULTS.giftDetectionDelaySeconds, 1, 120),
+        likesPerSpawn: toInt(valueOf('liveSettingLikesPerSpawn'), LIVE_SETTINGS_DEFAULTS.likesPerSpawn, 1, 1000),
+        likeHealAmount: toInt(valueOf('liveSettingLikeHeal'), LIVE_SETTINGS_DEFAULTS.likeHealAmount, 1, 100),
+        profileBlurAmount: toInt(valueOf('liveSettingProfileBlur'), LIVE_SETTINGS_DEFAULTS.profileBlurAmount, 0, 20),
+        profilePicScale: Number(toFloat(valueOf('liveSettingProfilePicScale'), LIVE_SETTINGS_DEFAULTS.profilePicScale, 0.2, 0.9).toFixed(2)),
+        showProfilePicture: checkedOf('liveSettingShowProfilePicture'),
+        enableRandomLikeBonus: checkedOf('liveSettingLikeRandomBonus'),
+        followSpawnEnabled: checkedOf('liveSettingFollowSpawnEnabled')
+    };
+}
+
+function renderLivePlayersPreview(entry) {
+    const list = document.getElementById('liveSettingsPlayersList');
+    if (!list) return;
+
+    const players = Array.isArray(entry?.clientRuntimeState?.activePlayers?.players)
+        ? entry.clientRuntimeState.activePlayers.players
+        : [];
+    if (players.length === 0) {
+        list.innerHTML = '<div class="admin-list-empty">Aktif oyuncu raporu yok.</div>';
+        return;
+    }
+
+    list.innerHTML = players
+        .map((player) => {
+            return `
+                <div class="admin-item">
+                    <div class="admin-item-main">
+                        <strong>${escapeHtml(player.nickname || '-')}</strong>
+                        <span>${escapeHtml(player.uniqueId || '-')}</span>
+                    </div>
+                    <div class="admin-item-meta">
+                        <span>HP: ${Number(player.hp || 0)}/${Number(player.maxHp || 0)}</span>
+                        <span>ATK: ${Number(player.attack || 0)}</span>
+                        <span>Boyut: ${Number(player.sizeLevel || 1)}</span>
+                    </div>
+                </div>
+            `;
+        })
+        .join('');
 }
 
 function fillCodeForm(code) {
@@ -309,6 +452,8 @@ async function initAdminPage() {
 
     let cachedCodes = [];
     let liveRefreshTimer = null;
+    let liveConnectionsCache = new Map();
+    let selectedLiveSocketId = '';
 
     async function refreshCodes() {
         const payload = await fetchApi('/api/premium/codes', { user });
@@ -323,6 +468,15 @@ async function initAdminPage() {
 
     async function refreshLiveConnections() {
         const payload = await fetchApi('/api/admin/live-streamers', { user });
+        const sockets = Array.isArray(payload?.sockets) ? payload.sockets : [];
+        liveConnectionsCache = new Map(
+            sockets
+                .map((entry) => [String(entry?.socketId || '').trim(), entry])
+                .filter(([socketId]) => Boolean(socketId))
+        );
+        if (selectedLiveSocketId && !liveConnectionsCache.has(selectedLiveSocketId)) {
+            closeLiveSettingsModal();
+        }
         renderLiveConnections(payload);
     }
 
@@ -338,6 +492,104 @@ async function initAdminPage() {
             displayNameInput.value = payload.displayName || '';
         }
     }
+
+    const liveSettingsModal = document.getElementById('liveSettingsModal');
+    const liveSettingsSocketInfo = document.getElementById('liveSettingsSocketInfo');
+
+    function closeLiveSettingsModal() {
+        selectedLiveSocketId = '';
+        if (liveSettingsModal) {
+            liveSettingsModal.style.display = 'none';
+        }
+    }
+
+    function openLiveSettingsModal(socketId) {
+        const safeSocketId = String(socketId || '').trim();
+        if (!safeSocketId) {
+            setMessage('Socket secimi gecersiz.', 'error');
+            return;
+        }
+
+        const entry = liveConnectionsCache.get(safeSocketId);
+        if (!entry) {
+            setMessage('Secilen baglanti artik aktif degil. Listeyi yenileyin.', 'error');
+            return;
+        }
+
+        selectedLiveSocketId = safeSocketId;
+        const settings = readLiveSettingsFromEntry(entry);
+        fillLiveSettingsFormValues(settings);
+        renderLivePlayersPreview(entry);
+
+        if (liveSettingsSocketInfo) {
+            const email = String(entry.userEmail || 'Bilinmeyen hesap');
+            const activeCount = Number(entry?.clientRuntimeState?.activePlayers?.aliveCount || 0);
+            liveSettingsSocketInfo.textContent = `Socket: ${safeSocketId} | Hesap: ${email} | Aktif oyuncu: ${activeCount}`;
+        }
+
+        if (liveSettingsModal) {
+            liveSettingsModal.style.display = 'flex';
+        }
+    }
+
+    document.getElementById('closeLiveSettingsModalBtn')?.addEventListener('click', () => {
+        closeLiveSettingsModal();
+    });
+
+    liveSettingsModal?.addEventListener('click', (event) => {
+        if (event.target === liveSettingsModal) {
+            closeLiveSettingsModal();
+        }
+    });
+
+    document.getElementById('liveConnectionsList')?.addEventListener('click', (event) => {
+        const button = event.target.closest('.live-settings-btn');
+        if (!button) return;
+
+        const socketId = String(button.dataset.socketId || '').trim();
+        if (!socketId) return;
+        openLiveSettingsModal(socketId);
+    });
+
+    document.getElementById('saveLiveSettingsBtn')?.addEventListener('click', async () => {
+        setMessage('');
+
+        const socketId = String(selectedLiveSocketId || '').trim();
+        if (!socketId) {
+            setMessage('Lutfen once bir canli baglanti secin.', 'error');
+            return;
+        }
+
+        const payload = readLiveSettingsFormPayload();
+        const saveBtn = document.getElementById('saveLiveSettingsBtn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Uygulaniyor...';
+        }
+
+        try {
+            await fetchApi(`/api/admin/live-streamers/${encodeURIComponent(socketId)}/settings`, {
+                method: 'POST',
+                user,
+                body: { settings: payload }
+            });
+
+            await refreshLiveConnections();
+            const updatedEntry = liveConnectionsCache.get(socketId);
+            if (updatedEntry) {
+                openLiveSettingsModal(socketId);
+            }
+
+            setMessage('Secili baglantiya oyuncu ayarlari gonderildi.', 'success');
+        } catch (error) {
+            setMessage(error.message || 'Oyuncu ayarlari gonderilemedi.', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Ayarlari Uygula';
+            }
+        }
+    });
 
     document.getElementById('refreshCodesBtn')?.addEventListener('click', async () => {
         setMessage('');

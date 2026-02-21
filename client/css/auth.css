@@ -510,6 +510,54 @@ h1 {
     width: fit-content;
 }
 
+.admin-item-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.admin-list-compact {
+    max-height: 220px;
+    margin-top: 8px;
+}
+
+.admin-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(3, 5, 16, 0.75);
+    padding: 16px;
+}
+
+.admin-modal-card {
+    width: min(760px, calc(100vw - 20px));
+    max-height: calc(100vh - 28px);
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: linear-gradient(160deg, rgba(14, 21, 44, 0.98), rgba(9, 14, 29, 0.98));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.admin-modal-head h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
 .btn-danger {
     background: rgba(255, 107, 107, 0.15);
     border-color: rgba(255, 107, 107, 0.4);

@@ -566,6 +566,7 @@ class SettingsPanel {
         if (this.guideOpen) this.closeGuide();
         this.isOpen = true;
         this.overlay.style.display = 'flex';
+        this.syncFormWithConfig();
         this._renderGiftList();
         this._renderSkinGrid();
         this._renderArenaThemeGrid();
@@ -589,6 +590,40 @@ class SettingsPanel {
     closeGuide() {
         this.guideOpen = false;
         this.guideOverlay.style.display = 'none';
+    }
+
+    syncFormWithConfig() {
+        if (!this.overlay || !this.giftConfig) return;
+
+        const setValue = (selector, value) => {
+            const el = this.overlay.querySelector(selector);
+            if (el) el.value = String(value);
+        };
+        const setChecked = (selector, checked) => {
+            const el = this.overlay.querySelector(selector);
+            if (el) el.checked = Boolean(checked);
+        };
+
+        setValue('#settingDefaultHp', this.giftConfig.defaultHp);
+        setValue('#settingDefaultAttack', this.giftConfig.defaultAttack);
+        setValue('#settingDefaultSize', this.giftConfig.defaultSize);
+        setValue('#settingProfilePicScale', this.giftConfig.profilePicScale);
+        setChecked('#settingShowProfilePic', this.giftConfig.showProfilePicture !== false);
+        setValue('#settingShieldDuration', this.giftConfig.defaultShieldDuration);
+        setValue('#settingWinnerCountdown', Math.max(1, Math.floor(Number(this.giftConfig.winnerCountdownSeconds) || 10)));
+        setValue('#settingLikesPerSpawn', this.giftConfig.likesPerSpawn);
+        setValue('#settingLikeHeal', this.giftConfig.likeHealAmount);
+        setChecked('#settingLikeRandomBonus', this.giftConfig.enableRandomLikeBonus !== false);
+        setChecked('#settingFollowSpawnEnabled', this.giftConfig.followSpawnEnabled !== false);
+        setValue('#settingProfileBlur', Math.max(0, Number(this.giftConfig.profileBlurAmount) || 0));
+        setValue('#settingGiftDelay', Math.max(1, Math.floor(Number(this.giftConfig.giftDetectionDelaySeconds) || 10)));
+
+        this.overlay.querySelectorAll('.arena-shape-card').forEach((card) => {
+            card.classList.toggle('active', card.dataset.shape === this.giftConfig.arenaShape);
+        });
+
+        this._syncCompliancePreview();
+        this._applyProfileBlurToDom();
     }
 
     // ========== SKIN GRID ==========

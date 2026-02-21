@@ -99,6 +99,8 @@ class Game {
         const entry = {
             killerName: killer.nickname || 'Unknown',
             victimName: victim.nickname || 'Unknown',
+            killerProfilePictureUrl: killer.profilePictureUrl || '',
+            victimProfilePictureUrl: victim.profilePictureUrl || '',
             time: Date.now()
         };
         this.killFeed.push(entry);
@@ -111,7 +113,12 @@ class Game {
         }, 4000);
 
         if (window.uiManager && typeof window.uiManager.showEliminationNotification === 'function') {
-            window.uiManager.showEliminationNotification(entry.killerName, entry.victimName);
+            window.uiManager.showEliminationNotification(
+                entry.killerName,
+                entry.victimName,
+                entry.killerProfilePictureUrl,
+                entry.victimProfilePictureUrl
+            );
         }
     }
 
@@ -551,7 +558,7 @@ class Game {
         }
 
         if (window.uiManager && typeof window.uiManager.showJoinNotification === 'function') {
-            window.uiManager.showJoinNotification(data?.nickname);
+            window.uiManager.showJoinNotification(data?.nickname, data?.profilePictureUrl);
         }
 
         return blade;

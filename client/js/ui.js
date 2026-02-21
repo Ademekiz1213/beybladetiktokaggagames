@@ -98,6 +98,10 @@ class UIManager {
     _createArenaNoticeLayer() {
         this.arenaNoticeLayer = document.createElement('div');
         this.arenaNoticeLayer.className = 'arena-notice-layer';
+        this.arenaNoticeLayer.innerHTML = '<div class="arena-notice"></div>';
+        this.arenaNoticeEl = this.arenaNoticeLayer.querySelector('.arena-notice');
+        this._arenaNoticeHideTimer = null;
+        this._arenaNoticeCleanupTimer = null;
         document.body.appendChild(this.arenaNoticeLayer);
     }
 
@@ -312,48 +316,93 @@ class UIManager {
         return { enabled, notifyJoin, notifyElimination, seconds };
     }
 
-    _showArenaNotice(message, tone = 'neutral') {
+    _sanitizeAvatarUrl(url) {
+        const normalized = String(url || '').trim();
+        if (!/^https?:\/\//i.test(normalized)) return '';
+        return normalized;
+    }
+
+    _buildNoticeAvatarHtml(primaryAvatarUrl, secondaryAvatarUrl) {
+        const primaryUrl = this._sanitizeAvatarUrl(primaryAvatarUrl);
+        const secondaryUrl = this._sanitizeAvatarUrl(secondaryAvatarUrl);
+
+        const primaryImg = primaryUrl
+            ? `<img class="arena-notice-avatar" src="${this._escapeHtml(primaryUrl)}" alt="" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+            : '';
+        const primaryFallbackStyle = primaryUrl ? 'display:none;' : '';
+        const primaryFallback = `<span class="arena-notice-avatar arena-notice-avatar-fallback" style="${primaryFallbackStyle}">👤</span>`;
+
+        const secondaryHtml = secondaryUrl
+            ? `<img class="arena-notice-avatar is-secondary" src="${this._escapeHtml(secondaryUrl)}" alt="" onerror="this.style.display='none';">`
+            : '';
+
+        return `
+            <div class="arena-notice-avatar-stack">
+                ${primaryImg}
+                ${primaryFallback}
+                ${secondaryHtml}
+            </div>
+        `;
+    }
+
+    _showArenaNotice({ message, tone = 'neutral', primaryAvatarUrl = '', secondaryAvatarUrl = '', icon = '🔔' } = {}) {
         const text = String(message || '').trim();
-        if (!text || !this.arenaNoticeLayer) return;
+        if (!text || !this.arenaNoticeEl) return;
 
-        const item = document.createElement('div');
+        const item = this.arenaNoticeEl;
+        if (this._arenaNoticeHideTimer) window.clearTimeout(this._arenaNoticeHideTimer);
+        if (this._arenaNoticeCleanupTimer) window.clearTimeout(this._arenaNoticeCleanupTimer);
+
         item.className = `arena-notice ${tone === 'join' ? 'is-join' : tone === 'elimination' ? 'is-elimination' : ''}`;
-        item.textContent = text;
-        this.arenaNoticeLayer.appendChild(item);
+        item.innerHTML = `
+            ${this._buildNoticeAvatarHtml(primaryAvatarUrl, secondaryAvatarUrl)}
+            <div class="arena-notice-content">
+                <div class="arena-notice-badge">${this._escapeHtml(icon)}</div>
+                <div class="arena-notice-text">${this._escapeHtml(text)}</div>
+            </div>
+        `;
 
-        while (this.arenaNoticeLayer.children.length > 4) {
-            this.arenaNoticeLayer.removeChild(this.arenaNoticeLayer.firstChild);
-        }
-
-        requestAnimationFrame(() => {
-            item.classList.add('is-visible');
-        });
+        item.classList.remove('is-visible', 'is-hiding');
+        // retrigger entry animation while reusing same panel area (stacked at same position)
+        void item.offsetWidth;
+        requestAnimationFrame(() => item.classList.add('is-visible'));
 
         const { seconds } = this._getArenaNoticeConfig();
-        window.setTimeout(() => {
+        this._arenaNoticeHideTimer = window.setTimeout(() => {
             item.classList.remove('is-visible');
             item.classList.add('is-hiding');
-            window.setTimeout(() => {
-                item.remove();
+            this._arenaNoticeCleanupTimer = window.setTimeout(() => {
+                item.classList.remove('is-hiding');
             }, 260);
         }, seconds * 1000);
     }
 
-    showJoinNotification(nickname) {
+    showJoinNotification(nickname, profilePictureUrl = '') {
         const { enabled, notifyJoin } = this._getArenaNoticeConfig();
         if (!enabled || !notifyJoin) return;
 
         const name = String(nickname || '').trim() || 'Bir oyuncu';
-        this._showArenaNotice(`🟢 ${name} arenaya katildi`, 'join');
+        this._showArenaNotice({
+            message: `${name} arenaya katildi`,
+            tone: 'join',
+            primaryAvatarUrl: profilePictureUrl,
+            icon: 'KATILIM'
+        });
     }
 
-    showEliminationNotification(killerName, victimName) {
+    showEliminationNotification(killerName, victimName, killerProfileUrl = '', victimProfileUrl = '') {
         const { enabled, notifyElimination } = this._getArenaNoticeConfig();
         if (!enabled || !notifyElimination) return;
 
         const killer = String(killerName || '').trim() || 'Bir oyuncu';
         const victim = String(victimName || '').trim() || 'rakibini';
-        this._showArenaNotice(`⚔️ ${killer}, ${victim} eledi`, 'elimination');
+        this._showArenaNotice({
+            message: `${killer}, ${victim} eledi`,
+            tone: 'elimination',
+            primaryAvatarUrl: killerProfileUrl,
+            secondaryAvatarUrl: victimProfileUrl,
+            icon: 'ELEME'
+        });
     }
 
     _setConnectLoading(isLoading) {

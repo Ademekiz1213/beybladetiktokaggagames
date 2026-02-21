@@ -496,29 +496,93 @@ body {
     top: 72px;
     left: 50%;
     transform: translateX(-50%);
-    width: min(560px, calc(100vw - 20px));
+    width: min(620px, calc(100vw - 20px));
     z-index: 88;
     pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    display: block;
 }
 
 .arena-notice {
     width: 100%;
-    padding: 10px 12px;
-    border-radius: 11px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: rgba(10, 15, 32, 0.9);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 13px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background:
+        linear-gradient(135deg, rgba(9, 15, 32, 0.92), rgba(17, 24, 39, 0.92));
     color: #e8f2ff;
     font-size: 13px;
     font-weight: 700;
-    text-align: center;
     opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-    transition: opacity 0.22s ease, transform 0.22s ease;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
+    transform: translateY(-9px) scale(0.97);
+    transition: opacity 0.24s ease, transform 0.24s ease;
+    box-shadow: 0 16px 34px rgba(2, 6, 23, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.arena-notice-avatar-stack {
+    position: relative;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+}
+
+.arena-notice-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    background: rgba(12, 18, 32, 0.9);
+    box-shadow: 0 8px 16px rgba(2, 6, 23, 0.45);
+    display: block;
+}
+
+.arena-notice-avatar-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+}
+
+.arena-notice-avatar.is-secondary {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    right: -4px;
+    bottom: -2px;
+    border-width: 1.5px;
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.arena-notice-content {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.arena-notice-badge {
+    align-self: flex-start;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(226, 232, 240, 0.95);
+    background: rgba(15, 23, 42, 0.46);
+}
+
+.arena-notice-text {
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.25;
+    color: #f8fbff;
+    text-shadow: 0 1px 4px rgba(2, 6, 23, 0.45);
+    word-break: break-word;
 }
 
 .arena-notice.is-visible {
@@ -528,19 +592,29 @@ body {
 
 .arena-notice.is-hiding {
     opacity: 0;
-    transform: translateY(-6px) scale(0.98);
+    transform: translateY(-7px) scale(0.97);
 }
 
 .arena-notice.is-join {
-    border-color: rgba(34, 214, 122, 0.45);
-    background: rgba(8, 45, 29, 0.9);
-    color: #b9ffd8;
+    border-color: rgba(34, 197, 94, 0.5);
+    background: linear-gradient(135deg, rgba(12, 48, 32, 0.94), rgba(12, 32, 28, 0.94));
+}
+
+.arena-notice.is-join .arena-notice-badge {
+    border-color: rgba(74, 222, 128, 0.55);
+    color: #bbf7d0;
+    background: rgba(21, 128, 61, 0.28);
 }
 
 .arena-notice.is-elimination {
-    border-color: rgba(239, 68, 68, 0.45);
-    background: rgba(60, 17, 17, 0.9);
-    color: #ffd2d2;
+    border-color: rgba(239, 68, 68, 0.5);
+    background: linear-gradient(135deg, rgba(76, 23, 23, 0.94), rgba(44, 18, 26, 0.94));
+}
+
+.arena-notice.is-elimination .arena-notice-badge {
+    border-color: rgba(248, 113, 113, 0.55);
+    color: #fecaca;
+    background: rgba(185, 28, 28, 0.28);
 }
 
 .btn-disconnect {
@@ -2646,7 +2720,34 @@ body {
     }
 
     .arena-notice {
-        font-size: 12px;
+        gap: 10px;
         padding: 9px 10px;
+    }
+
+    .arena-notice-avatar-stack {
+        width: 38px;
+        min-width: 38px;
+        height: 38px;
+    }
+
+    .arena-notice-avatar {
+        width: 38px;
+        height: 38px;
+    }
+
+    .arena-notice-avatar.is-secondary {
+        width: 20px;
+        height: 20px;
+        right: -3px;
+        bottom: -2px;
+    }
+
+    .arena-notice-badge {
+        font-size: 9px;
+        padding: 2px 6px;
+    }
+
+    .arena-notice-text {
+        font-size: 12px;
     }
 }

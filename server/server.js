@@ -27,18 +27,32 @@ function envBool(name, fallback = false) {
 
 function parseProxyUrls(rawValue) {
     if (!rawValue) return [];
+    const schemeRegex = /^(http|https|socks4|socks5):\/\//i;
     const values = String(rawValue)
-        .split(/[\n,;]+/)
+        .split(/[\n,;|]+/)
         .map((item) => String(item || '').trim())
         .filter(Boolean);
 
     const unique = [];
     const seen = new Set();
-    for (const value of values) {
-        const normalized = value.toLowerCase();
-        if (!/^(http|https|socks4|socks5):\/\//i.test(value)) {
+    for (const rawValueItem of values) {
+        let value = rawValueItem;
+        if (!schemeRegex.test(value)) {
+            try {
+                const parsed = new URL(`http://${value}`);
+                if (parsed.hostname && parsed.port) {
+                    value = `http://${value}`;
+                }
+            } catch {
+                // Ignore invalid fallback conversion.
+            }
+        }
+
+        if (!schemeRegex.test(value)) {
             continue;
         }
+
+        const normalized = value.toLowerCase();
         if (seen.has(normalized)) continue;
         seen.add(normalized);
         unique.push(value);
@@ -70,21 +84,21 @@ const DEFAULT_GIFT_DELAY_SECONDS = Math.max(
 );
 const ENABLE_TIKTOK_CHAT_EVENTS = String(process.env.ENABLE_TIKTOK_CHAT_EVENTS || '').toLowerCase() === 'true';
 const ENABLE_TIKTOK_SHARE_EVENTS = String(process.env.ENABLE_TIKTOK_SHARE_EVENTS || '').toLowerCase() === 'true';
-const TIKTOK_PROXY_URLS = parseProxyUrls(process.env.TIKTOK_PROXY_URLS || process.env.TIKTOK_PROXY_URL || '');
+const TIKTOK_PROXY_URLS = parseProxyUrls(
+    process.env.TIKTOK_PROXY_URLS
+    || process.env.TIKTOK_PROXY_URL
+    || process.env.HTTPS_PROXY
+    || process.env.HTTP_PROXY
+    || process.env.ALL_PROXY
+    || ''
+);
 const TIKTOK_PROXY_ENABLED = envBool('TIKTOK_PROXY_ENABLED', TIKTOK_PROXY_URLS.length > 0);
-const TIKTOK_PROXY_INCLUDE_DIRECT = envBool('TIKTOK_PROXY_INCLUDE_DIRECT', true);
+const TIKTOK_PROXY_INCLUDE_DIRECT = envBool('TIKTOK_PROXY_INCLUDE_DIRECT', false);
 const TIKTOK_PROXY_CONNECT_TIMEOUT_MS = Math.max(5_000, envInt('TIKTOK_PROXY_CONNECT_TIMEOUT_MS', 15_000));
 const TIKTOK_PROXY_ROUTES = (() => {
     if (!TIKTOK_PROXY_ENABLED || TIKTOK_PROXY_URLS.length === 0) return [];
 
     const routes = [];
-    if (TIKTOK_PROXY_INCLUDE_DIRECT) {
-        routes.push({
-            proxyUrl: '',
-            routeLabel: 'direct'
-        });
-    }
-
     for (let i = 0; i < TIKTOK_PROXY_URLS.length; i += 1) {
         routes.push({
             proxyUrl: TIKTOK_PROXY_URLS[i],
@@ -92,10 +106,19 @@ const TIKTOK_PROXY_ROUTES = (() => {
         });
     }
 
+    if (TIKTOK_PROXY_INCLUDE_DIRECT) {
+        routes.push({
+            proxyUrl: '',
+            routeLabel: 'direct'
+        });
+    }
+
     return routes;
 })();
 if (TIKTOK_PROXY_ROUTES.length > 0) {
     console.log(`[TikTok] Proxy support aktif. Route sayisi: ${TIKTOK_PROXY_ROUTES.length}`);
+} else if (TIKTOK_PROXY_ENABLED) {
+    console.warn('[TikTok] Proxy aktif gorunuyor ancak gecerli proxy URL bulunamadi. TIKTOK_PROXY_URLS degerini kontrol edin.');
 }
 
 const liveSocketStates = new Map(); // socketId -> live connection snapshot
@@ -874,6 +897,27 @@ io.on('connection', (socket) => {
         proxyRouteStates.delete(streamerKey);
     }
 
+    function getProxyFallbackInfo(streamerKey) {
+        const totalRoutes = TIKTOK_PROXY_ROUTES.length;
+        if (totalRoutes <= 0) {
+            return {
+                totalRoutes: 0,
+                failedRoutes: 0,
+                hasNextRoute: false
+            };
+        }
+
+        const state = proxyRouteStates.get(streamerKey);
+        const failedRoutes = Math.max(0, Number(state?.consecutiveFailures || 0));
+        const hasNextRoute = totalRoutes > 1 && failedRoutes < totalRoutes;
+
+        return {
+            totalRoutes,
+            failedRoutes,
+            hasNextRoute
+        };
+    }
+
     function getStreamerRetryState(streamerKey) {
         const now = Date.now();
 
@@ -1232,6 +1276,22 @@ io.on('connection', (socket) => {
                             statusPayload.retryAfterMs = DISCONNECT_RECONNECT_COOLDOWN_MS;
                         }
                     } else if (shouldCountFailure) {
+                        const proxyFallback = getProxyFallbackInfo(streamerKey);
+                        if (proxyFallback.hasNextRoute) {
+                            const reconnect = scheduleAutoReconnect(streamerKey, handler);
+                            if (reconnect.scheduled) {
+                                statusPayload.connecting = true;
+                                statusPayload.queued = true;
+                                statusPayload.autoReconnect = true;
+                                statusPayload.proxyRouteFallback = true;
+                                statusPayload.retryAfterMs = reconnect.delayMs;
+                                statusPayload.reconnectAttempt = reconnect.attempt;
+                                statusPayload.error = `${handler.username} baglantisi basarisiz. Proxy rotasi deneniyor (${Math.min(proxyFallback.failedRoutes + 1, proxyFallback.totalRoutes)}/${proxyFallback.totalRoutes}).`;
+                                emitSocketStatus(socket, sessionHandlers, statusPayload);
+                                return;
+                            }
+                        }
+
                         clearAutoReconnect(streamerKey);
                         const current = sessionHandlers.get(streamerKey);
                         if (current === handler) {

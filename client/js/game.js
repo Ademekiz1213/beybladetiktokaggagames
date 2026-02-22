@@ -681,6 +681,7 @@ class Game {
 
         // Draw arena
         this.arena.draw();
+        this._drawArenaWatermark();
 
         // Update physics
         if (this.state === 'battle' || this.state === 'countdown') {
@@ -785,6 +786,22 @@ class Game {
             this.ctx.lineTo(this.canvas.width, y);
             this.ctx.stroke();
         }
+    }
+
+    _drawArenaWatermark() {
+        const ctx = this.ctx;
+        const text = 'thendatiktokgame.online';
+        const fontSize = Math.max(18, Math.floor(Math.min(this.canvas.width, this.canvas.height) * 0.03));
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `700 ${fontSize}px Orbitron`;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(text, this.arena.centerX, this.arena.centerY);
+        ctx.restore();
     }
 
     _drawGameUI() {

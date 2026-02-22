@@ -56,6 +56,68 @@ body {
     max-width: 520px;
 }
 
+.landing-shell {
+    max-width: 760px;
+}
+
+.game-showcase {
+    margin: 18px 0 12px;
+}
+
+.game-showcase-card {
+    display: grid;
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    gap: 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px;
+}
+
+.game-showcase-media {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.2);
+    min-height: 140px;
+}
+
+.game-showcase-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.game-showcase-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.game-showcase-content h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 20px;
+    line-height: 1.2;
+}
+
+.game-showcase-content p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.game-buy-btn {
+    margin-top: 4px;
+    width: fit-content;
+}
+
+.auth-copy-small {
+    margin-bottom: 14px;
+}
+
 .eyebrow {
     margin: 0;
     color: var(--brand);
@@ -199,6 +261,12 @@ h1 {
 
     .auth-actions {
         flex-direction: column;
+    }
+}
+
+@media (max-width: 760px) {
+    .game-showcase-card {
+        grid-template-columns: 1fr;
     }
 }
 
